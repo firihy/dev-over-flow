@@ -1,6 +1,6 @@
 import Navbar from "@/components/navigation/navbar";
 
-const RootLayout = ({ children }: LayoutProps<"/">) => {
+const HomeLayout = ({ children }: LayoutProps<"/">) => {
   return (
     <main>
       <Navbar />
@@ -9,4 +9,4 @@ const RootLayout = ({ children }: LayoutProps<"/">) => {
   );
 };
 
-export default RootLayout;
+export default HomeLayout;
