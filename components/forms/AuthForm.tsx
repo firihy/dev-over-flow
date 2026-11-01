@@ -70,7 +70,18 @@ const AuthForm = <T extends FieldValues>({
                 <Input
                   {...field}
                   id={field.name}
-                  type={field.name === "password" ? "password" : "text"}
+                  type={
+                    field.name === "password" || field.name === "email"
+                      ? field.name
+                      : "text"
+                  }
+                  autoComplete={
+                    field.name === "password"
+                      ? isSignIn
+                        ? "current-password"
+                        : "new-password"
+                      : field.name
+                  }
                   aria-invalid={fieldState.invalid}
                   className="paragraph-regular background-light900_dark300 light-border-2 text-dark300_light700 no-focus rounded-1.5 min-h-12 border"
                 />
