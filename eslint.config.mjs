@@ -1,26 +1,21 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import prettier from "eslint-config-prettier/flat";
+import neostandard from "neostandard";
 
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  {
-    ignores: ["components/ui/**/*"],
-  },
-  ...compat.extends(
-    "next/core-web-vitals",
-    "next/typescript",
-    "standard",
-    "prettier",
-    // "plugin:tailwindcss/recommended"
-  ),
+const eslintConfig = defineConfig([
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "components/ui/**/*",
+  ]),
+  ...nextVitals,
+  ...nextTs,
+  ...neostandard({ ts: true, noStyle: true, noJsx: true }),
+  prettier,
   {
     rules: {
       "import/order": [
@@ -63,6 +58,6 @@ const eslintConfig = [
       "no-undef": "off",
     },
   },
-];
+]);
 
 export default eslintConfig;
