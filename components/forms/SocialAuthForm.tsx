@@ -2,16 +2,20 @@
 
 import Image from "next/image";
 import { signIn } from "next-auth/react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
 
 const SocialAuthForm = () => {
+  const [isPending, setIsPending] = useState(false);
   const buttonClass =
     "background-dark400_light900 body-medium text-dark200_light800 rounded-2 min-h-12 flex-1 px-4 py-3.5";
 
   const handleSignIn = async (provider: "github" | "google") => {
+    setIsPending(true);
+
     try {
       await signIn(provider, {
         redirectTo: ROUTES.HOME,
@@ -23,6 +27,7 @@ const SocialAuthForm = () => {
             ? error.message
             : "An error occurred during sign-in",
       });
+      setIsPending(false);
     }
   };
 
@@ -31,6 +36,7 @@ const SocialAuthForm = () => {
       <Button
         type="button"
         className={buttonClass}
+        disabled={isPending}
         onClick={() => handleSignIn("github")}
       >
         <Image
@@ -45,6 +51,7 @@ const SocialAuthForm = () => {
       <Button
         type="button"
         className={buttonClass}
+        disabled={isPending}
         onClick={() => handleSignIn("google")}
       >
         <Image
