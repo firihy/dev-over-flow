@@ -8,7 +8,7 @@ const Home = () => {
       <h1 className="h1-bold">Welcome to the world of Next.js!</h1>
 
       <form
-        className="px-10 pt-25"
+        className="mt-10"
         action={async () => {
           "use server";
           await signOut({ redirectTo: ROUTES.SIGN_IN });

@@ -4,7 +4,7 @@ const RootLayout = ({ children }: LayoutProps<"/">) => {
   return (
     <main>
       <Navbar />
-      {children}
+      <section className="px-6 pt-28 sm:px-12">{children}</section>
     </main>
   );
 };
