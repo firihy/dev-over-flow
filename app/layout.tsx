@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk as SpaceGrotesk } from "next/font/google";
 
 import Navbar from "@/components/navigation/navbar";
+import ThemeProvider from "@/context/Theme";
 
-import ThemeProvider from "./context/Theme";
 import "./globals.css";
 
 const inter = Inter({
