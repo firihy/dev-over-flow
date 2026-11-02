@@ -55,7 +55,7 @@ const NavLinks = ({ isMobileNav = false, userId }: NavLinksProps) => {
               <p
                 className={cn(
                   isActive ? "base-bold" : "base-medium",
-                  !isMobileNav && "max-lg:hidden",
+                  !isMobileNav && "max-lg:sr-only",
                 )}
               >
                 {item.label}
