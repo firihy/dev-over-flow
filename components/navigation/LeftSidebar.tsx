@@ -44,7 +44,7 @@ const LeftSidebar = async () => {
                 alt=""
                 width={20}
                 height={20}
-                className="invert-colors lg:hidden"
+                className="invert-colors size-5 object-contain lg:hidden"
               />
               <span className="primary-text-gradient max-lg:sr-only">
                 Log In
@@ -62,7 +62,7 @@ const LeftSidebar = async () => {
                 alt=""
                 width={20}
                 height={20}
-                className="invert-colors lg:hidden"
+                className="invert-colors size-5 object-contain lg:hidden"
               />
               <span className="max-lg:sr-only">Sign Up</span>
             </Link>

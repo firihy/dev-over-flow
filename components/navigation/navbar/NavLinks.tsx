@@ -51,7 +51,11 @@ const NavLinks = ({ isMobileNav = false, userId }: NavLinksProps) => {
                 alt=""
                 width={20}
                 height={20}
-                className={cn(!isActive && "invert-colors")}
+                // Fixed square box: some icons (e.g. star.svg) aren't square
+                className={cn(
+                  "size-5 object-contain",
+                  !isActive && "invert-colors",
+                )}
               />
               <p
                 className={cn(
