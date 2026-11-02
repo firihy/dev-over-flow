@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { Toaster } from "@/components/ui/sonner";
 import ThemeProvider from "@/context/Theme";
 
+import "devicon/devicon.min.css";
 import "./globals.css";
 
 const inter = Inter({
