@@ -1,6 +1,9 @@
 "use client";
 
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import type { MDXEditorMethods } from "@mdxeditor/editor";
+import dynamic from "next/dynamic";
+import { useRef } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -15,6 +18,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { AskQuestionSchema } from "@/lib/validations";
 
+// The editor touches `window`, so it can only render in the browser
+const Editor = dynamic(() => import("@/components/editor"), {
+  ssr: false,
+  loading: () => (
+    <div className="background-light800_dark200 light-border-2 min-h-87.5 w-full border" />
+  ),
+});
+
 type QuestionFormValues = z.infer<typeof AskQuestionSchema>;
 
 const INPUT_CLASSES =
@@ -27,6 +38,9 @@ const RequiredMark = () => (
 );
 
 const QuestionForm = () => {
+  // Lets us reset the editor once questions can be submitted
+  const editorRef = useRef<MDXEditorMethods>(null);
+
   const form = useForm<QuestionFormValues>({
     resolver: standardSchemaResolver(AskQuestionSchema),
     defaultValues: { title: "", content: "", tags: [] },
@@ -72,13 +86,16 @@ const QuestionForm = () => {
         <Controller
           control={form.control}
           name="content"
-          render={({ fieldState }) => (
+          render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid} className="gap-3">
               <FieldLabel className="paragraph-semibold text-dark400_light800">
                 Detailed explanation of your problem <RequiredMark />
               </FieldLabel>
-              {/* TODO: Replace with the rich text editor */}
-              <div>Editor</div>
+              <Editor
+                value={field.value}
+                onChange={field.onChange}
+                editorRef={editorRef}
+              />
               <FieldDescription className="body-regular text-light-500">
                 Introduce the problem and expand on what you&apos;ve put in the
                 title.

@@ -441,6 +441,12 @@
   background: #ffffff !important;
 }
 
+/* MDXEditor's built-in dark theme leaves dropdowns and popups white */
+.mdxeditor.dark-theme,
+.mdxeditor-popup-container.dark-theme {
+  --basePageBg: var(--color-dark-300);
+}
+
 .dark .mdxeditor-toolbar {
   background: #151821 !important;
 }

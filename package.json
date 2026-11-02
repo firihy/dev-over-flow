@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.1",
+    "@mdxeditor/editor": "^4.5.0",
     "class-variance-authority": "^0.7.1",
+    "cm6-theme-basic-dark": "^0.2.0",
     "cn": "^0.4.0",
     "devicon": "2.17.0",
     "lucide-react": "^1.66.0",
