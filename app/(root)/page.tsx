@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
+import { getFirstParam } from "@/lib/url";
 
 // TODO: Replace with real questions once they are stored
 const questions = [
@@ -41,9 +42,7 @@ const SEARCH_PLACEHOLDER = "Search questions...";
 
 const Home = async ({ searchParams }: PageProps<"/">) => {
   const { query } = await searchParams;
-  // `?query=a&query=b` arrives as an array; use the first value
-  const searchQuery = (Array.isArray(query) ? query[0] : query) ?? "";
-  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const normalizedQuery = getFirstParam(query).trim().toLowerCase();
 
   const filteredQuestions = questions.filter((question) =>
     question.title.toLowerCase().includes(normalizedQuery),

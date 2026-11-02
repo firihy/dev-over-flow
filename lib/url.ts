@@ -39,3 +39,9 @@ export const removeKeysFromUrlQuery = ({
 
   return buildUrl(pathname, searchParams);
 };
+
+type SearchParamValue = string | string[] | undefined;
+
+// Repeated params (`?a=1&a=2`) arrive as an array; use the first value
+export const getFirstParam = (value: SearchParamValue) =>
+  (Array.isArray(value) ? value[0] : value) ?? "";
