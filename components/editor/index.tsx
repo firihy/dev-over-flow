@@ -64,8 +64,9 @@ const Editor = ({ value, onChange, editorRef }: EditorProps) => {
   return (
     // Layout styles live on this wrapper because MDXEditor copies `className`
     // onto its popup container too, which would render a stray bordered bar.
-    // `grid` stops long code lines from stretching the page.
-    <div className="background-light800_dark200 light-border-2 grid w-full border">
+    // The minmax column lets long code lines and the toolbar scroll inside
+    // the box instead of stretching the page.
+    <div className="background-light800_dark200 light-border-2 grid w-full grid-cols-[minmax(0,1fr)] border">
       <MDXEditor
         // Code block themes are only read on mount, so remount on theme change.
         // `value` comes from the form, so the text survives the remount.
