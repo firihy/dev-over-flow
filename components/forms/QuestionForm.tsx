@@ -3,10 +3,11 @@
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import dynamic from "next/dynamic";
-import { useRef } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import type { z } from "zod";
 
+import TagCard from "@/components/cards/TagCard";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -28,6 +29,9 @@ const Editor = dynamic(() => import("@/components/editor"), {
 
 type QuestionFormValues = z.infer<typeof AskQuestionSchema>;
 
+// Reuse the schema's rules (max 3 tags, max length) so they live in one place
+const TagsSchema = AskQuestionSchema.shape.tags;
+
 const INPUT_CLASSES =
   "paragraph-regular background-light700_dark300 light-border-2 text-dark300_light700 no-focus min-h-14 border";
 
@@ -45,6 +49,43 @@ const QuestionForm = () => {
     resolver: standardSchemaResolver(AskQuestionSchema),
     defaultValues: { title: "", content: "", tags: [] },
   });
+
+  const [tagInput, setTagInput] = useState("");
+
+  const addTag = (tags: string[], onChange: (tags: string[]) => void) => {
+    const tag = tagInput.trim();
+    if (!tag) return;
+
+    const isDuplicate = tags.some((t) => t.toLowerCase() === tag.toLowerCase());
+    if (isDuplicate) {
+      form.setError("tags", { message: "Tag already added." });
+      return;
+    }
+
+    const nextTags = [...tags, tag];
+    const result = TagsSchema.safeParse(nextTags);
+    if (!result.success) {
+      form.setError("tags", { message: result.error.issues[0].message });
+      return;
+    }
+
+    onChange(nextTags);
+    setTagInput("");
+    form.clearErrors("tags");
+  };
+
+  const handleTagKeyDown = (
+    e: KeyboardEvent<HTMLInputElement>,
+    tags: string[],
+    onChange: (tags: string[]) => void,
+  ) => {
+    // Ignore Enter while an IME (e.g. Japanese input) is still composing
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+
+    // Enter would otherwise submit the whole form
+    e.preventDefault();
+    addTag(tags, onChange);
+  };
 
   const handleCreateQuestion: SubmitHandler<QuestionFormValues> = async () => {
     // TODO: Save the question
@@ -108,7 +149,7 @@ const QuestionForm = () => {
         <Controller
           control={form.control}
           name="tags"
-          render={({ fieldState }) => (
+          render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid} className="gap-3">
               <FieldLabel
                 htmlFor="tags"
@@ -116,13 +157,37 @@ const QuestionForm = () => {
               >
                 Tags <RequiredMark />
               </FieldLabel>
-              {/* TODO: Turn typed text into tags */}
               <Input
                 id="tags"
+                // Lets the form focus this input when tags are invalid
+                ref={field.ref}
+                onBlur={field.onBlur}
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) =>
+                  handleTagKeyDown(e, field.value, field.onChange)
+                }
                 placeholder="Add tags..."
                 aria-invalid={fieldState.invalid}
                 className={INPUT_CLASSES}
               />
+              {field.value.length > 0 && (
+                <div className="flex-start flex-wrap gap-2.5">
+                  {field.value.map((tag) => (
+                    <TagCard
+                      key={tag}
+                      _id={tag}
+                      name={tag}
+                      onRemove={() => {
+                        // Drop stale errors like "max 3 tags"; after a submit,
+                        // onChange re-checks the schema and re-adds real ones
+                        form.clearErrors("tags");
+                        field.onChange(field.value.filter((t) => t !== tag));
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
               <FieldDescription className="body-regular text-light-500">
                 Add up to 3 tags to describe what your question is about. You
                 need to press enter to add a tag.
