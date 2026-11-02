@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
@@ -74,8 +75,9 @@ const Home = async ({ searchParams }: PageProps<"/">) => {
         </Suspense>
       </section>
 
-      {/* TODO: Replace with HomeFilter */}
-      <section className="text-dark400_light700 mt-6">HomeFilter</section>
+      <Suspense>
+        <HomeFilter />
+      </Suspense>
 
       <section className="mt-10 flex w-full flex-col gap-6">
         {filteredQuestions.length > 0 ? (
