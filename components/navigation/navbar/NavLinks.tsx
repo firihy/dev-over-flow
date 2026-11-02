@@ -29,7 +29,8 @@ const NavLinks = ({ isMobileNav = false, userId }: NavLinksProps) => {
         const isProfile = item.route === ROUTES.PROFILE;
         if (isProfile && !userId) return null;
 
-        const href = isProfile ? `${item.route}/${userId}` : item.route;
+        const href =
+          isProfile && userId ? ROUTES.PROFILE_DETAILS(userId) : item.route;
         const isActive = isRouteActive(pathname, item.route);
         const Wrapper = isMobileNav ? SheetClose : Fragment;
 
