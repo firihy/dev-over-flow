@@ -20,8 +20,16 @@ export interface IUserDoc extends IUser {
 const UserSchema = new Schema<IUser>(
   {
     name: { type: String, required: true },
-    username: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    // Unique because profile URLs are built from it
+    username: { type: String, required: true, unique: true, trim: true },
+    // Stored lowercase so "John@Mail.com" and "john@mail.com" are one account
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     bio: { type: String },
     image: { type: String, required: true },
     location: { type: String },
