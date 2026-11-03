@@ -20,7 +20,7 @@ export interface IInteraction {
   user: Types.ObjectId;
   action: InteractionAction;
   actionId: Types.ObjectId;
-  actionType: InteractionTarget;
+  actionTarget: InteractionTarget;
 }
 
 // What a saved interaction looks like: `timestamps` adds these two fields
@@ -41,7 +41,7 @@ const InteractionSchema = new Schema<IInteraction>(
     // Only known actions, so a typo like "veiw" is rejected, not stored
     action: { type: String, enum: INTERACTION_ACTIONS, required: true },
     actionId: { type: Schema.Types.ObjectId, required: true },
-    actionType: { type: String, enum: INTERACTION_TARGETS, required: true },
+    actionTarget: { type: String, enum: INTERACTION_TARGETS, required: true },
   },
   { timestamps: true },
 );

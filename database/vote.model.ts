@@ -11,7 +11,7 @@ export interface IVote {
   // The question or answer being voted on. Not called `id`: Mongoose
   // already uses `doc.id` for the document's own _id.
   actionId: Types.ObjectId;
-  actionType: VoteTarget;
+  actionTarget: VoteTarget;
   voteType: VoteType;
 }
 
@@ -25,7 +25,7 @@ const VoteSchema = new Schema<IVote>(
   {
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
     actionId: { type: Schema.Types.ObjectId, required: true },
-    actionType: { type: String, enum: VOTE_TARGETS, required: true },
+    actionTarget: { type: String, enum: VOTE_TARGETS, required: true },
     voteType: { type: String, enum: VOTE_TYPES, required: true },
   },
   { timestamps: true },
@@ -34,7 +34,7 @@ const VoteSchema = new Schema<IVote>(
 // One vote per user per item. Changing a vote updates this document
 // instead of adding another, so double-clicks can't inflate the counts.
 // Starts with `author`, so it also speeds up "this user's votes".
-VoteSchema.index({ author: 1, actionId: 1, actionType: 1 }, { unique: true });
+VoteSchema.index({ author: 1, actionId: 1, actionTarget: 1 }, { unique: true });
 
 // Reuse the model on dev reloads (see user.model.ts)
 const Vote =
