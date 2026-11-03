@@ -13,11 +13,23 @@ export interface ITagDoc extends ITag {
 
 const TagSchema = new Schema<ITag>(
   {
-    name: { type: String, required: true, unique: true, trim: true },
+    // Uniqueness is enforced by the case-insensitive index below
+    name: { type: String, required: true, trim: true },
     // How many questions use this tag
-    questions: { type: Number, default: 0 },
+    // `min` only checks create/save; guard `$inc` decrements in the filter
+    questions: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
+);
+
+// One tag per name, ignoring case: "React" and "react" are the same tag.
+// Strength 2 compares letters but not case, and the name is still stored
+// the way it was first typed. To look a tag up case-insensitively (and use
+// this index), add the same `.collation({ locale: "en", strength: 2 })` to
+// the query.
+TagSchema.index(
+  { name: 1 },
+  { unique: true, collation: { locale: "en", strength: 2 } },
 );
 
 // Reuse the model on dev reloads (see user.model.ts)
