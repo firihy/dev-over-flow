@@ -19,9 +19,24 @@ export interface IQuestionDoc extends IQuestion {
 
 const QuestionSchema = new Schema<IQuestion>(
   {
-    title: { type: String, required: true },
-    content: { type: String, required: true },
-    tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+    // Same limits as AskQuestionSchema, so data that skips the form is
+    // still checked
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 5,
+      maxlength: 100,
+    },
+    content: { type: String, required: true, trim: true },
+    tags: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Tag" }],
+      validate: {
+        validator: (tags: Types.ObjectId[]) =>
+          tags.length >= 1 && tags.length <= 3,
+        message: "A question needs between 1 and 3 tags.",
+      },
+    },
     views: { type: Number, default: 0 },
     upvotes: { type: Number, default: 0 },
     downvotes: { type: Number, default: 0 },
