@@ -41,10 +41,19 @@ const QuestionSchema = new Schema<IQuestion>(
     upvotes: { type: Number, default: 0 },
     downvotes: { type: Number, default: 0 },
     answers: { type: Number, default: 0 },
-    author: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    author: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      // Speeds up the profile page ("questions by this user")
+      index: true,
+    },
   },
   { timestamps: true },
 );
+
+// Speeds up the tag page ("questions with this tag")
+QuestionSchema.index({ tags: 1 });
 
 // Reuse the model on dev reloads (see user.model.ts)
 const Question =
