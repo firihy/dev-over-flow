@@ -26,6 +26,10 @@ const TagQuestionSchema = new Schema<ITagQuestion>(
   { timestamps: true },
 );
 
+// Each tag–question pair only once. Starts with `tag`, so it also speeds
+// up the tag page ("questions with this tag").
+TagQuestionSchema.index({ tag: 1, question: 1 }, { unique: true });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const TagQuestion =
   (models.TagQuestion as Model<ITagQuestion> | undefined) ??
