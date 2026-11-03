@@ -31,6 +31,11 @@ const VoteSchema = new Schema<IVote>(
   { timestamps: true },
 );
 
+// One vote per user per item. Changing a vote updates this document
+// instead of adding another, so double-clicks can't inflate the counts.
+// Starts with `author`, so it also speeds up "this user's votes".
+VoteSchema.index({ author: 1, actionId: 1, actionType: 1 }, { unique: true });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const Vote =
   (models.Vote as Model<IVote> | undefined) ?? model<IVote>("Vote", VoteSchema);
