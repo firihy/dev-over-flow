@@ -17,7 +17,13 @@ export interface IAccountDoc extends IAccount {
 
 const AccountSchema = new Schema<IAccount>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      // Speeds up "find all accounts of this user"
+      index: true,
+    },
     name: { type: String, required: true },
     image: { type: String },
     password: { type: String },
@@ -26,6 +32,10 @@ const AccountSchema = new Schema<IAccount>(
   },
   { timestamps: true },
 );
+
+// One login identity = one account. Stops a double-click or two tabs from
+// creating the same GitHub/Google account twice.
+AccountSchema.index({ provider: 1, providerAccountId: 1 }, { unique: true });
 
 // Reuse the model on dev reloads (see user.model.ts)
 const Account =
