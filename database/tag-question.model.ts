@@ -1,0 +1,34 @@
+import { type Model, model, models, Schema, Types } from "mongoose";
+
+// Links one tag to one question
+export interface ITagQuestion {
+  tag: Types.ObjectId;
+  question: Types.ObjectId;
+}
+
+// What a saved link looks like: `timestamps` adds these two fields
+export interface ITagQuestionDoc extends ITagQuestion {
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const TagQuestionSchema = new Schema<ITagQuestion>(
+  {
+    tag: { type: Schema.Types.ObjectId, ref: "Tag", required: true },
+    question: {
+      type: Schema.Types.ObjectId,
+      ref: "Question",
+      required: true,
+      // Speeds up "tags of this question" and cleanup on question delete
+      index: true,
+    },
+  },
+  { timestamps: true },
+);
+
+// Reuse the model on dev reloads (see user.model.ts)
+const TagQuestion =
+  (models.TagQuestion as Model<ITagQuestion> | undefined) ??
+  model<ITagQuestion>("TagQuestion", TagQuestionSchema);
+
+export default TagQuestion;
