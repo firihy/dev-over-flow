@@ -26,7 +26,9 @@ const AccountSchema = new Schema<IAccount>(
     },
     name: { type: String, required: true },
     image: { type: String },
-    password: { type: String },
+    // Hidden from queries by default so the hash never leaks by accident.
+    // Read it with `.select("+password")` when checking a login.
+    password: { type: String, select: false },
     provider: { type: String, required: true },
     providerAccountId: { type: String, required: true },
   },
