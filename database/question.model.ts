@@ -37,10 +37,12 @@ const QuestionSchema = new Schema<IQuestion>(
         message: "A question needs between 1 and 3 tags.",
       },
     },
-    views: { type: Number, default: 0 },
-    upvotes: { type: Number, default: 0 },
-    downvotes: { type: Number, default: 0 },
-    answers: { type: Number, default: 0 },
+    // `min` only checks create/save. `$inc` updates skip it, so decrements
+    // must guard in the filter, e.g. { answers: { $gt: 0 } }
+    views: { type: Number, default: 0, min: 0 },
+    upvotes: { type: Number, default: 0, min: 0 },
+    downvotes: { type: Number, default: 0, min: 0 },
+    answers: { type: Number, default: 0, min: 0 },
     author: {
       type: Schema.Types.ObjectId,
       ref: "User",
