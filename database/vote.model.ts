@@ -1,10 +1,18 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+export const VOTE_TARGETS = ["question", "answer"] as const;
+export type VoteTarget = (typeof VOTE_TARGETS)[number];
+
+export const VOTE_TYPES = ["upvote", "downvote"] as const;
+export type VoteType = (typeof VOTE_TYPES)[number];
+
 export interface IVote {
   author: Types.ObjectId;
-  id: Types.ObjectId;
-  type: "question" | "answer";
-  voteType: "upvote" | "downvote";
+  // The question or answer being voted on. Not called `id`: Mongoose
+  // already uses `doc.id` for the document's own _id.
+  actionId: Types.ObjectId;
+  actionType: VoteTarget;
+  voteType: VoteType;
 }
 
 // What a saved vote looks like: `timestamps` adds these two fields
@@ -16,9 +24,9 @@ export interface IVoteDoc extends IVote {
 const VoteSchema = new Schema<IVote>(
   {
     author: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    id: { type: Schema.Types.ObjectId, required: true },
-    type: { type: String, enum: ["question", "answer"], required: true },
-    voteType: { type: String, enum: ["upvote", "downvote"], required: true },
+    actionId: { type: Schema.Types.ObjectId, required: true },
+    actionType: { type: String, enum: VOTE_TARGETS, required: true },
+    voteType: { type: String, enum: VOTE_TYPES, required: true },
   },
   { timestamps: true },
 );
