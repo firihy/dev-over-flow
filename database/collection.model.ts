@@ -20,6 +20,10 @@ const CollectionSchema = new Schema<ICollection>(
   { timestamps: true },
 );
 
+// A user can save a question only once. Starts with `author`, so it also
+// speeds up the "Collections" page ("questions this user saved").
+CollectionSchema.index({ author: 1, question: 1 }, { unique: true });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const Collection =
   (models.Collection as Model<ICollection> | undefined) ??
