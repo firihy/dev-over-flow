@@ -1,11 +1,14 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+export const ACCOUNT_PROVIDERS = ["github", "google", "credentials"] as const;
+export type AccountProvider = (typeof ACCOUNT_PROVIDERS)[number];
+
 export interface IAccount {
   userId: Types.ObjectId;
   name: string;
   image?: string;
   password?: string;
-  provider: string;
+  provider: AccountProvider;
   providerAccountId: string;
 }
 
@@ -29,7 +32,7 @@ const AccountSchema = new Schema<IAccount>(
     // Hidden from queries by default so the hash never leaks by accident.
     // Read it with `.select("+password")` when checking a login.
     password: { type: String, select: false },
-    provider: { type: String, required: true },
+    provider: { type: String, enum: ACCOUNT_PROVIDERS, required: true },
     providerAccountId: { type: String, required: true },
   },
   { timestamps: true },
