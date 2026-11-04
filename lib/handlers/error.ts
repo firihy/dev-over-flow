@@ -87,11 +87,16 @@ const parseError = (thrown: unknown): ErrorResponse => {
     );
   }
 
-  if (error instanceof Error) {
+  // Anything else is a bug or an outage. Log the real error for us and
+  // only show its message while developing: database and driver errors
+  // can reveal internal details.
+  console.error(error);
+
+  if (error instanceof Error && process.env.NODE_ENV !== "production") {
     return toErrorResponse(500, error.message);
   }
 
-  return toErrorResponse(500, "An unexpected error occurred");
+  return toErrorResponse(500, "Something went wrong. Please try again.");
 };
 
 // Overloads: the return type follows the responseType you pass,
