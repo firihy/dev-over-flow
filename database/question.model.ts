@@ -1,5 +1,7 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export interface IQuestion {
   title: string;
   content: string;
@@ -11,11 +13,8 @@ export interface IQuestion {
   author: Types.ObjectId;
 }
 
-// What a saved question looks like: `timestamps` adds these two fields
-export interface IQuestionDoc extends IQuestion {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface IQuestionDoc extends IQuestion, SavedDoc {}
 
 const QuestionSchema = new Schema<IQuestion>(
   {

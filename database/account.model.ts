@@ -1,5 +1,7 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export const ACCOUNT_PROVIDERS = ["github", "google", "credentials"] as const;
 export type AccountProvider = (typeof ACCOUNT_PROVIDERS)[number];
 
@@ -12,11 +14,8 @@ export interface IAccount {
   providerAccountId: string;
 }
 
-// What a saved account looks like: `timestamps` adds these two fields
-export interface IAccountDoc extends IAccount {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface IAccountDoc extends IAccount, SavedDoc {}
 
 const AccountSchema = new Schema<IAccount>(
   {

@@ -1,16 +1,15 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 // A question a user has saved
 export interface ICollection {
   author: Types.ObjectId;
   question: Types.ObjectId;
 }
 
-// What a saved entry looks like: `timestamps` adds these two fields
-export interface ICollectionDoc extends ICollection {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface ICollectionDoc extends ICollection, SavedDoc {}
 
 const CollectionSchema = new Schema<ICollection>(
   {

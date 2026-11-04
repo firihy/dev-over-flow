@@ -1,5 +1,7 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export interface IAnswer {
   author: Types.ObjectId;
   question: Types.ObjectId;
@@ -8,11 +10,8 @@ export interface IAnswer {
   downvotes: number;
 }
 
-// What a saved answer looks like: `timestamps` adds these two fields
-export interface IAnswerDoc extends IAnswer {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface IAnswerDoc extends IAnswer, SavedDoc {}
 
 const AnswerSchema = new Schema<IAnswer>(
   {

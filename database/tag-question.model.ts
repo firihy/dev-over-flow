@@ -1,16 +1,15 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 // Links one tag to one question
 export interface ITagQuestion {
   tag: Types.ObjectId;
   question: Types.ObjectId;
 }
 
-// What a saved link looks like: `timestamps` adds these two fields
-export interface ITagQuestionDoc extends ITagQuestion {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface ITagQuestionDoc extends ITagQuestion, SavedDoc {}
 
 const TagQuestionSchema = new Schema<ITagQuestion>(
   {

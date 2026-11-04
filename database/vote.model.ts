@@ -1,5 +1,7 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export const VOTE_TARGETS = ["question", "answer"] as const;
 export type VoteTarget = (typeof VOTE_TARGETS)[number];
 
@@ -15,11 +17,8 @@ export interface IVote {
   voteType: VoteType;
 }
 
-// What a saved vote looks like: `timestamps` adds these two fields
-export interface IVoteDoc extends IVote {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface IVoteDoc extends IVote, SavedDoc {}
 
 const VoteSchema = new Schema<IVote>(
   {

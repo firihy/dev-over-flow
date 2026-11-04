@@ -1,5 +1,7 @@
 import { type Model, model, models, Schema } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export interface IUser {
   name: string;
   username: string;
@@ -12,11 +14,8 @@ export interface IUser {
   reputation?: number;
 }
 
-// What a saved user looks like: `timestamps` adds these two fields
-export interface IUserDoc extends IUser {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface IUserDoc extends IUser, SavedDoc {}
 
 const UserSchema = new Schema<IUser>(
   {

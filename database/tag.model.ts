@@ -1,15 +1,14 @@
 import { type Model, model, models, Schema } from "mongoose";
 
+import type { SavedDoc } from "@/database/types";
+
 export interface ITag {
   name: string;
   questions: number;
 }
 
-// What a saved tag looks like: `timestamps` adds these two fields
-export interface ITagDoc extends ITag {
-  createdAt: Date;
-  updatedAt: Date;
-}
+// What a saved document looks like (see types.ts)
+export interface ITagDoc extends ITag, SavedDoc {}
 
 const TagSchema = new Schema<ITag>(
   {
