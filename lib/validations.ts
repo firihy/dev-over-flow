@@ -81,15 +81,16 @@ const httpUrl = z.url({
 // Body of POST /api/users. Lenient on username on purpose: OAuth sign-in
 // creates users here too, and GitHub usernames can contain hyphens.
 // No `reputation`: users must not set their own (the model defaults it to 0).
+// `.string({ error })` is the message when a required field is missing.
 export const UserSchema = z.object({
   name: z
-    .string()
+    .string({ error: "Name is required." })
     .trim()
     .min(1, { message: "Name is required." })
     .max(50, { message: "Name cannot exceed 50 characters." }),
 
   username: z
-    .string()
+    .string({ error: "Username is required." })
     .trim()
     .min(3, { message: "Username must be at least 3 characters long." })
     .max(30, { message: "Username cannot exceed 30 characters." }),
@@ -97,7 +98,7 @@ export const UserSchema = z.object({
   // Trim and lowercase first so " John@Mail.com " matches the stored
   // "john@mail.com" in the duplicate check
   email: z
-    .string()
+    .string({ error: "Email is required." })
     .trim()
     .toLowerCase()
     .pipe(z.email({ message: "Please provide a valid email address." })),
