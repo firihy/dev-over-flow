@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import User, { type IUserDoc } from "@/database/user.model";
 import handleError from "@/lib/handlers/error";
-import { ConflictError, RequestError } from "@/lib/http-errors";
+import { parseJsonBody } from "@/lib/handlers/parse-json-body";
+import { ConflictError } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
 import { UserSchema } from "@/lib/validations";
 import type { APIResponse } from "@/types";
@@ -24,10 +25,7 @@ export async function GET(): Promise<APIResponse<IUserDoc[]>> {
 // Create a user
 export async function POST(request: Request): Promise<APIResponse<IUserDoc>> {
   try {
-    // A body that isn't JSON is the client's mistake (400), not a crash (500)
-    const body: unknown = await request.json().catch(() => {
-      throw new RequestError(400, "Invalid JSON body.");
-    });
+    const body = await parseJsonBody(request);
 
     // Throws a ZodError on bad input; handleError turns it into a 400
     // with the message for each field. Unknown keys (like reputation)
