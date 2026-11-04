@@ -8,6 +8,7 @@ import {
   RequestError,
   ValidationError,
 } from "@/lib/http-errors";
+import logger from "@/lib/logger";
 
 // "api": API routes, returns a NextResponse
 // "server": server actions, returns a plain object
@@ -87,10 +88,10 @@ const parseError = (thrown: unknown): ErrorResponse => {
     );
   }
 
-  // Anything else is a bug or an outage. Log the real error for us and
-  // only show its message while developing: database and driver errors
-  // can reveal internal details.
-  console.error(error);
+  // Anything else is a bug or an outage. Log the real error (with its
+  // stack) for us and only show its message while developing: database
+  // and driver errors can reveal internal details.
+  logger.error({ err: error }, "Unexpected error");
 
   if (error instanceof Error && process.env.NODE_ENV !== "production") {
     return toErrorResponse(500, error.message);
@@ -111,6 +112,21 @@ function handleError(
   responseType: ErrorResponseType = "server",
 ): NextResponse<ErrorResponse> | ErrorResponse {
   const response = parseError(error);
+
+  // 4xx errors are user mistakes (bad input, not signed in...), not bugs,
+  // so they get "warn". Field messages can quote what the user typed
+  // (Mongoose: "`veiw` is not a valid enum value"), so log field names only.
+  if (response.status < 500) {
+    const { message, details } = response.error;
+    logger.warn(
+      {
+        status: response.status,
+        responseType,
+        fields: details && Object.keys(details),
+      },
+      details ? "Validation failed" : message,
+    );
+  }
 
   return responseType === "api"
     ? NextResponse.json(response, { status: response.status })
