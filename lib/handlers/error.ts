@@ -1,7 +1,9 @@
+import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  ConflictError,
   type FieldErrors,
   RequestError,
   ValidationError,
@@ -30,8 +32,44 @@ const toErrorResponse = (
   error: { message, details },
 });
 
+// A unique index rejected the write (MongoDB error code 11000),
+// e.g. a second tag "react" or voting twice on the same question
+const isDuplicateKeyError = (
+  error: unknown,
+): error is Error & { code: number; keyValue?: Record<string, unknown> } =>
+  error instanceof Error && "code" in error && error.code === 11000;
+
+// Turns Mongoose errors into the error classes the user should see
+const fromMongooseError = (error: unknown): RequestError | null => {
+  // A schema rule failed (required, min, enum...) on create/save
+  if (error instanceof mongoose.Error.ValidationError) {
+    const fieldErrors: FieldErrors = {};
+    for (const [field, fieldError] of Object.entries(error.errors)) {
+      fieldErrors[field] = [fieldError.message];
+    }
+    return new ValidationError(fieldErrors);
+  }
+
+  // e.g. an invalid ObjectId like /questions/abc
+  if (error instanceof mongoose.Error.CastError) {
+    return new ValidationError({ [error.path]: [`Invalid ${error.path}.`] });
+  }
+
+  if (isDuplicateKeyError(error)) {
+    // Only field names, never the values, end up in the message
+    const fields = Object.keys(error.keyValue ?? {}).join(", ");
+    return new ConflictError(
+      fields ? `Duplicate value for ${fields}.` : "Already exists.",
+    );
+  }
+
+  return null;
+};
+
 // Turns any thrown value into { status, message, details }
-const parseError = (error: unknown): ErrorResponse => {
+const parseError = (thrown: unknown): ErrorResponse => {
+  const error = fromMongooseError(thrown) ?? thrown;
+
   if (error instanceof RequestError) {
     return toErrorResponse(error.statusCode, error.message, error.errors);
   }
