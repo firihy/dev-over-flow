@@ -16,6 +16,7 @@
   "dependencies": {
     "@hookform/resolvers": "^7.0.1",
     "@mdxeditor/editor": "^4.5.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "cm6-theme-basic-dark": "^0.2.0",
     "cn": "^0.4.0",
