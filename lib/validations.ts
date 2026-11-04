@@ -1,5 +1,23 @@
 import { z } from "zod";
 
+import { ACCOUNT_PROVIDERS } from "@/constants/accounts";
+
+// Rules for a new password, shared by sign-up and accounts
+const passwordSchema = z
+  .string()
+  .min(6, { message: "Password must be at least 6 characters long." })
+  .max(100, { message: "Password cannot exceed 100 characters." })
+  .regex(/[A-Z]/, {
+    message: "Password must contain at least one uppercase letter.",
+  })
+  .regex(/[a-z]/, {
+    message: "Password must contain at least one lowercase letter.",
+  })
+  .regex(/[0-9]/, { message: "Password must contain at least one number." })
+  .regex(/[^a-zA-Z0-9]/, {
+    message: "Password must contain at least one special character.",
+  });
+
 export const SignInSchema = z.object({
   email: z
     .email({ message: "Please provide a valid email address." })
@@ -34,20 +52,7 @@ export const SignUpSchema = z.object({
     .email({ message: "Please provide a valid email address." })
     .min(1, { message: "Email is required." }),
 
-  password: z
-    .string()
-    .min(6, { message: "Password must be at least 6 characters long." })
-    .max(100, { message: "Password cannot exceed 100 characters." })
-    .regex(/[A-Z]/, {
-      message: "Password must contain at least one uppercase letter.",
-    })
-    .regex(/[a-z]/, {
-      message: "Password must contain at least one lowercase letter.",
-    })
-    .regex(/[0-9]/, { message: "Password must contain at least one number." })
-    .regex(/[^a-zA-Z0-9]/, {
-      message: "Password must contain at least one special character.",
-    }),
+  password: passwordSchema,
 });
 
 export const AskQuestionSchema = z.object({
@@ -107,4 +112,40 @@ export const UserSchema = z.object({
   image: httpUrl.optional(),
   location: z.string().optional(),
   portfolio: httpUrl.optional(),
+});
+
+// A MongoDB ObjectId: 24 hex characters. Checked here (not with mongoose)
+// because this file is also used in the browser.
+const objectIdSchema = (field: string) =>
+  z
+    .string({ error: `${field} is required.` })
+    .regex(/^[a-f\d]{24}$/i, { message: `Invalid ${field}.` });
+
+// Fields of an account. Kept without refinements so routes can
+// .pick()/.partial() it (Zod refuses that on refined schemas).
+export const AccountFieldsSchema = z.object({
+  userId: objectIdSchema("User ID"),
+  name: z
+    .string({ error: "Name is required." })
+    .trim()
+    .min(1, { message: "Name is required." }),
+  image: httpUrl.optional(),
+  password: passwordSchema.optional(),
+  provider: z.enum(ACCOUNT_PROVIDERS, {
+    error: `Provider must be one of: ${ACCOUNT_PROVIDERS.join(", ")}.`,
+  }),
+  providerAccountId: z
+    .string({ error: "Provider Account ID is required." })
+    .trim()
+    .min(1, { message: "Provider Account ID is required." }),
+});
+
+// Body of POST /api/accounts. Only email/password ("credentials")
+// accounts have a password; GitHub/Google ones never do.
+export const AccountSchema = AccountFieldsSchema.refine(
+  (account) => account.provider !== "credentials" || account.password,
+  { message: "Password is required.", path: ["password"] },
+).refine((account) => account.provider === "credentials" || !account.password, {
+  message: "Only email/password accounts can have a password.",
+  path: ["password"],
 });

@@ -1,9 +1,7 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import { ACCOUNT_PROVIDERS, type AccountProvider } from "@/constants/accounts";
 import type { SavedDoc } from "@/database/types";
-
-export const ACCOUNT_PROVIDERS = ["github", "google", "credentials"] as const;
-export type AccountProvider = (typeof ACCOUNT_PROVIDERS)[number];
 
 export interface IAccount {
   userId: Types.ObjectId;
