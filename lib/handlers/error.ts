@@ -9,19 +9,11 @@ import {
   ValidationError,
 } from "@/lib/http-errors";
 import logger from "@/lib/logger";
+import type { ErrorResponse } from "@/types";
 
 // "api": API routes, returns a NextResponse
 // "server": server actions, returns a plain object
 export type ErrorResponseType = "api" | "server";
-
-export interface ErrorResponse {
-  success: false;
-  status: number;
-  error: {
-    message: string;
-    details?: FieldErrors;
-  };
-}
 
 const toErrorResponse = (
   status: number,
