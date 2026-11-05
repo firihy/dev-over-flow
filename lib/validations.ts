@@ -149,3 +149,12 @@ export const AccountSchema = AccountFieldsSchema.refine(
   message: "Only email/password accounts can have a password.",
   path: ["password"],
 });
+
+// Body of PUT /api/accounts/[id]. Only these can change: userId, provider
+// and providerAccountId identify the login, so changing them would move it
+// to another user or identity.
+export const AccountUpdateSchema = AccountFieldsSchema.pick({
+  name: true,
+  image: true,
+  password: true,
+}).partial();

@@ -6,18 +6,10 @@ import { parseJsonBody } from "@/lib/handlers/parse-json-body";
 import { NotFoundError, ValidationError } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
 import { hashPassword } from "@/lib/password";
-import { AccountFieldsSchema } from "@/lib/validations";
+import { AccountUpdateSchema } from "@/lib/validations";
 import type { APIResponse } from "@/types";
 
 type Context = RouteContext<"/api/accounts/[id]">;
-
-// Only these can change. userId, provider and providerAccountId identify
-// the login, so changing them would move it to another user or identity.
-const AccountUpdateSchema = AccountFieldsSchema.pick({
-  name: true,
-  image: true,
-  password: true,
-}).partial();
 
 // GET /api/accounts/[id]
 export async function GET(
