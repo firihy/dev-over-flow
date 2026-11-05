@@ -1,3 +1,4 @@
+import type { Types } from "mongoose";
 import type { NextResponse } from "next/server";
 
 import type { FieldErrors } from "@/lib/http-errors";
@@ -48,3 +49,14 @@ export type ActionResponse<T = null> = SuccessResponse<T> | ErrorResponse;
 
 // What an API route handler returns
 export type APIResponse<T = null> = NextResponse<ActionResponse<T>>;
+
+// What a value looks like after a trip through JSON (an API response):
+// Dates and ObjectIds arrive as strings. e.g. Serialized<IUserDoc> has
+// _id: string and createdAt: string.
+export type Serialized<T> = T extends Date | Types.ObjectId
+  ? string
+  : T extends (infer U)[]
+    ? Serialized<U>[]
+    : T extends object
+      ? { [K in keyof T]: Serialized<T[K]> }
+      : T;
