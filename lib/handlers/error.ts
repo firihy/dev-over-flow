@@ -68,11 +68,7 @@ const parseError = (thrown: unknown): ErrorResponse => {
   }
 
   if (error instanceof z.ZodError) {
-    const { fieldErrors, formErrors } = z.flattenError(error);
-    const validationError = new ValidationError(
-      fieldErrors as FieldErrors,
-      formErrors,
-    );
+    const validationError = ValidationError.fromZodError(error);
     return toErrorResponse(
       validationError.statusCode,
       validationError.message,

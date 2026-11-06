@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 // Errors that carry an HTTP status. Throw these for problems the user
 // should see; handleError turns them into a response.
 
@@ -25,6 +27,13 @@ export class ValidationError extends RequestError {
       fieldErrors,
     );
     this.name = "ValidationError";
+  }
+
+  // Field errors go under their field; errors from .refine() without a
+  // path apply to the whole form
+  static fromZodError(error: z.ZodError) {
+    const { fieldErrors, formErrors } = z.flattenError(error);
+    return new ValidationError(fieldErrors as FieldErrors, formErrors);
   }
 
   // Our schema messages are full sentences ("Email is required."),
