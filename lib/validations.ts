@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ACCOUNT_PROVIDERS } from "@/constants/accounts";
+import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
 
 // Rules for a new password, shared by sign-up and accounts
 const passwordSchema = z
@@ -158,3 +158,18 @@ export const AccountUpdateSchema = AccountFieldsSchema.pick({
   image: true,
   password: true,
 }).partial();
+
+// What GitHub/Google tell us about a user when they sign in. Reuses the
+// user and account rules, so an OAuth user is valid by the same rules as
+// one created through POST /api/users.
+// `username` is only a suggestion (GitHub login or Google name): the
+// sign-in turns it into a valid, unused username.
+export const SignInWithOAuthSchema = z.object({
+  provider: z.enum(OAUTH_PROVIDERS, {
+    error: `Provider must be one of: ${OAUTH_PROVIDERS.join(", ")}.`,
+  }),
+  providerAccountId: AccountFieldsSchema.shape.providerAccountId,
+  user: UserSchema.pick({ name: true, email: true, image: true }).extend({
+    username: z.string().trim().optional(),
+  }),
+});
