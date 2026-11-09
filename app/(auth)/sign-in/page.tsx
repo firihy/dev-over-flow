@@ -9,7 +9,8 @@ const SignIn = () => {
       formType="SIGN_IN"
       schema={SignInSchema}
       defaultValues={{ email: "", password: "" }}
-      onSubmit={() => Promise.resolve({ success: true })}
+      // TODO: email/password sign-in (next commit)
+      onSubmit={async () => ({ success: true, data: null })}
     />
   );
 };

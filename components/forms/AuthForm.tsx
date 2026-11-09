@@ -2,6 +2,7 @@
 
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Controller,
   type DefaultValues,
@@ -10,6 +11,7 @@ import {
   type SubmitHandler,
   useForm,
 } from "react-hook-form";
+import { toast } from "sonner";
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -21,11 +23,13 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import ROUTES from "@/constants/routes";
+import type { ActionResponse } from "@/types";
 
 interface AuthFormProps<T extends FieldValues> {
   schema: z.ZodType<T, T>;
   defaultValues: T;
-  onSubmit: (data: T) => Promise<{ success: boolean }>;
+  // A server action, e.g. signUpWithCredentials
+  onSubmit: (data: T) => Promise<ActionResponse>;
   formType: "SIGN_IN" | "SIGN_UP";
 }
 
@@ -35,17 +39,51 @@ const AuthForm = <T extends FieldValues>({
   formType,
   onSubmit,
 }: AuthFormProps<T>) => {
+  const router = useRouter();
   const form = useForm<T>({
     resolver: standardSchemaResolver(schema),
     defaultValues: defaultValues as DefaultValues<T>,
   });
 
-  const handleSubmit: SubmitHandler<T> = async (data) => {
-    // TODO: Authenticate User
-    await onSubmit(data);
-  };
-
   const isSignIn = formType === "SIGN_IN";
+
+  const handleSubmit: SubmitHandler<T> = async (data) => {
+    let result: ActionResponse;
+    try {
+      result = await onSubmit(data);
+    } catch {
+      // The action couldn't be reached (offline, server down...)
+      toast.error("Something went wrong", {
+        description: "Please check your connection and try again.",
+      });
+      return;
+    }
+
+    if (result.success) {
+      toast.success(
+        isSignIn ? "Signed in successfully" : "Signed up successfully",
+      );
+      // The action set the session cookie, so the next page renders
+      // signed in
+      router.push(ROUTES.HOME);
+      return;
+    }
+
+    // Errors about one of our fields (e.g. "username already taken") go
+    // under that field; anything else becomes a toast
+    const { message, details = {} } = result.error;
+    const fieldErrors = Object.entries(details).filter(
+      ([field, messages]) => field in defaultValues && messages.length > 0,
+    );
+    for (const [field, messages] of fieldErrors) {
+      form.setError(field as Path<T>, { message: messages[0] });
+    }
+    if (fieldErrors.length === 0) {
+      toast.error(isSignIn ? "Sign-in failed" : "Sign-up failed", {
+        description: message,
+      });
+    }
+  };
   const buttonText = isSignIn ? "Sign In" : "Sign Up";
   const pendingText = isSignIn ? "Signing In..." : "Signing Up...";
 
