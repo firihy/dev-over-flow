@@ -3,6 +3,7 @@
 // Server actions: every export here can be called from the browser with a
 // POST, so each one validates its own input.
 
+import { CredentialsSignin } from "next-auth";
 import type { z } from "zod";
 
 import { signIn } from "@/auth";
@@ -10,14 +11,19 @@ import Account from "@/database/account.model";
 import User from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
-import { type FieldErrors, ValidationError } from "@/lib/http-errors";
+import {
+  type FieldErrors,
+  UnauthorizedError,
+  ValidationError,
+} from "@/lib/http-errors";
 import logger from "@/lib/logger";
 import dbConnect from "@/lib/mongoose";
 import { hashPassword } from "@/lib/password";
-import { SignUpSchema } from "@/lib/validations";
+import { SignInSchema, SignUpSchema } from "@/lib/validations";
 import type { ActionResponse } from "@/types";
 
 export type SignUpInput = z.input<typeof SignUpSchema>;
+export type SignInInput = z.input<typeof SignInSchema>;
 
 // Creates a user with an email/password account, then signs them in.
 export async function signUpWithCredentials(
@@ -94,4 +100,28 @@ export async function signUpWithCredentials(
   }
 
   return { success: true, data: null };
+}
+
+// Signs in with email and password. The password is checked in one
+// place only: the Credentials provider's authorize() (verifyCredentials).
+export async function signInWithCredentials(
+  input: SignInInput,
+): Promise<ActionResponse> {
+  try {
+    // Validates and normalizes the email (" A@B.com" -> "a@b.com")
+    const { params } = await action({ params: input, schema: SignInSchema });
+
+    // Sets the session cookie. redirect: false because the form decides
+    // where to go next.
+    await signIn("credentials", { ...params, redirect: false });
+
+    return { success: true, data: null };
+  } catch (error) {
+    // authorize() returned null. Same message for an unknown email and a
+    // wrong password, so it doesn't reveal which emails have an account.
+    if (error instanceof CredentialsSignin) {
+      return handleError(new UnauthorizedError("Invalid email or password."));
+    }
+    return handleError(error);
+  }
 }
