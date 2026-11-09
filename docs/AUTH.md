@@ -15,6 +15,117 @@ passwords.
 
 ---
 
+## 0. Mental models (read this first)
+
+Seven small ideas explain almost everything below. If a detail later is
+confusing, come back here and find which idea it belongs to.
+
+### 0.1 A person and their keys: User vs Account
+
+Think of a **User** as a person and **Accounts** as the keys on their
+keyring. Each key opens the same door, the person's profile.
+
+```mermaid
+flowchart LR
+  subgraph Keyring["One person's keyring"]
+    K1["🔑 GitHub key<br/>(Account: github)"]
+    K2["🔑 Google key<br/>(Account: google)"]
+    K3["🔑 Password key<br/>(Account: credentials)"]
+  end
+  K1 --> P["👤 User<br/>name, username, email, image"]
+  K2 --> P
+  K3 --> P
+```
+
+- Signing in = showing **any** key. We look up the key, then follow it to
+  the person.
+- A new GitHub/Google key with an email we already know is **added to that
+  person's keyring** (linking).
+- A new **password** key for an email we already know is **refused**.
+  Anyone could type your email, so that would hand them a key to your
+  account.
+
+### 0.2 Three doors, one wristband
+
+There are three ways in: GitHub, Google and email/password. Each one does
+its own checks, but they all end the same way: we work out **our** user id
+and put it on a wristband, the session cookie.
+
+```mermaid
+flowchart LR
+  G[GitHub door] --> Q{"Who is this<br/>in OUR database?"}
+  O[Google door] --> Q
+  E[Email + password door] --> Q
+  Q --> ID["our user id<br/>(token.sub)"]
+  ID --> W["🎟️ wristband<br/>= encrypted JWT cookie"]
+```
+
+The rest of the app never asks _how_ you got in. It only reads the
+wristband: `session.user.id` is always our MongoDB user id, whichever door
+you used.
+
+### 0.3 Check hard once, glance after
+
+| Moment                  | What happens                                                                           | Touches the DB? | Speed                                 |
+| ----------------------- | -------------------------------------------------------------------------------------- | --------------- | ------------------------------------- |
+| **Signing in** (rare)   | Ask GitHub/Google or check the password, find or create the user, issue the wristband. | Yes             | Slow on purpose: bcrypt takes ~400 ms |
+| **Every request after** | `auth()` decrypts the cookie and reads the id.                                         | **No**          | Very fast                             |
+
+That's why the DB helpers are loaded with `await import(...)` inside the
+sign-in code only. `proxy.ts` reads the wristband on every page request and
+must stay light.
+
+The flip side: the wristband is a **photo taken at sign-in**. If the user
+changes their name or picture later, the avatar keeps the old photo until
+they sign in again.
+
+### 0.4 The bouncer doesn't explain
+
+When a password sign-in fails, the bouncer says only **"Invalid email or
+password."** Never "no such email" or "wrong password", and not even faster
+or slower depending on why. Each hint would tell an attacker which emails
+have accounts. So `verifyCredentials` returns `null` for every failure,
+and it still runs bcrypt (against a dummy hash) when the email is unknown.
+
+Sign-up can't hide this ("this email already exists"), which is normal for
+sign-up forms.
+
+### 0.5 Public buttons vs back-office helpers
+
+| Kind                                      | Where                           | Who can call it                             | Rule                                                                    |
+| ----------------------------------------- | ------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| **Rulebook**                              | `auth.ts`                       | Auth.js                                     | Decides who may sign in and what goes on the wristband.                 |
+| **Public buttons** (`"use server"`)       | `lib/actions/*.action.ts`       | **Anyone**: every export is a POST endpoint | Validate everything (`action()` + Zod), trust nothing from the browser. |
+| **Back-office helpers** (`"server-only"`) | `lib/auth/*`, `lib/password.ts` | Only our server code                        | Can trust their caller. They are never exposed as endpoints.            |
+
+That's why `signInWithOAuth` isn't an API route. A public "link this
+GitHub id to that email" button would let anyone take over any account.
+
+### 0.6 The password is checked in exactly one place
+
+```mermaid
+flowchart LR
+  SU[sign-up action] -- "signIn('credentials')" --> AZ["authorize()<br/>→ verifyCredentials"]
+  SI[sign-in action] -- "signIn('credentials')" --> AZ
+  AZ --> R{password OK?}
+  R -- yes --> W[🎟️ wristband]
+  R -- no --> X[CredentialsSignin → 401]
+```
+
+The actions never compare passwords themselves. They hand the email and
+password to Auth.js, which runs `authorize()`. One place to get right, and
+one place to harden later (for example rate limiting).
+
+### 0.7 All or nothing
+
+Creating a user always means creating **two** documents: a User and its
+first Account. They are written in a **transaction**: either both are saved
+or neither is, so there is never a person with no key, or a key with no
+person. Slow work (bcrypt) happens **before** the transaction, because a
+transaction may retry.
+
+---
+
 ## 1. The pieces
 
 | File                                                | What it does                                                                                                                                                                                                                             |
