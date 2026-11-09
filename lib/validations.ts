@@ -18,10 +18,17 @@ const passwordSchema = z
     message: "Password must contain at least one special character.",
   });
 
+// Trim and lowercase first, then check the format, so " John@Mail.com "
+// matches the stored "john@mail.com" (the model saves emails lowercase)
+const emailSchema = z
+  .string({ error: "Email is required." })
+  .trim()
+  .toLowerCase()
+  .min(1, { message: "Email is required." })
+  .pipe(z.email({ message: "Please provide a valid email address." }));
+
 export const SignInSchema = z.object({
-  email: z
-    .email({ message: "Please provide a valid email address." })
-    .min(1, { message: "Email is required." }),
+  email: emailSchema,
 
   password: z
     .string()
@@ -48,9 +55,7 @@ export const SignUpSchema = z.object({
         "Name can only contain letters, spaces, apostrophes, and hyphens.",
     }),
 
-  email: z
-    .email({ message: "Please provide a valid email address." })
-    .min(1, { message: "Email is required." }),
+  email: emailSchema,
 
   password: passwordSchema,
 });
@@ -100,13 +105,7 @@ export const UserSchema = z.object({
     .min(3, { message: "Username must be at least 3 characters long." })
     .max(30, { message: "Username cannot exceed 30 characters." }),
 
-  // Trim and lowercase first so " John@Mail.com " matches the stored
-  // "john@mail.com" in the duplicate check
-  email: z
-    .string({ error: "Email is required." })
-    .trim()
-    .toLowerCase()
-    .pipe(z.email({ message: "Please provide a valid email address." })),
+  email: emailSchema,
 
   bio: z.string().optional(),
   image: httpUrl.optional(),
