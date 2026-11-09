@@ -13,6 +13,8 @@ passwords.
 - Email/password sign-up and sign-in work end to end.
 - What's still missing is listed in [Not done yet](#8-not-done-yet).
 
+New to the terms? Start with the [mental models](#0-mental-models-read-this-first) and keep the [glossary](#11-glossary) open.
+
 ---
 
 ## 0. Mental models (read this first)
@@ -604,3 +606,50 @@ default).
 | Sign-in: invalid input                                              | Messages under the fields (browser, then server).                                                 |
 | Sign-in: unknown email, wrong password, or GitHub/Google-only email | Toast "Sign-in failed: Invalid email or password." (401, the same for every cause).               |
 | Sign-in: database or other server error                             | Toast with a 500 error. The real error is logged on the server.                                   |
+
+---
+
+## 11. Glossary
+
+Plain-language meanings of the words used in this doc, in alphabetical order.
+
+| Term                                   | Meaning here                                                                                                                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AccessDenied**                       | The Auth.js error page shown when our `signIn` callback returns `false` (e.g. an OAuth login without an email).                                                                                             |
+| **Account**                            | One way a user logs in: a "key" (see 0.1). Stored in the `accounts` collection with `provider` + `providerAccountId`. One user can have several.                                                            |
+| **`action()`**                         | Our helper at the start of every server action. It checks the session (`authorize: true`), validates the input with a Zod schema, and connects to the DB. It throws on any problem.                         |
+| **`auth()`**                           | Reads and decrypts the session cookie and returns the session or `null`. Used in server components, server actions and the proxy. It doesn't touch the DB.                                                  |
+| **Auth.js / NextAuth**                 | The auth library (`next-auth@5`). It runs the OAuth dance, the Credentials check, and creates and reads the session cookie. Configured in `auth.ts`.                                                        |
+| **`authorize()`**                      | The Credentials provider's function. It gets the email and password and returns our user, or `null` to reject. Ours calls `verifyCredentials`.                                                              |
+| **bcrypt**                             | A deliberately slow password-hashing algorithm. Slow means guessing millions of passwords is expensive. It only uses the first 72 bytes of a password.                                                      |
+| **Callback (Auth.js)**                 | A hook Auth.js calls at a fixed moment. `signIn`: may this login go ahead? `jwt`: what goes in the token? `session`: what does `auth()` return?                                                             |
+| **Cookie**                             | A small value the browser stores and sends back on every request. Our session lives in one, encrypted and `httpOnly`, so page JavaScript can't read it.                                                     |
+| **Cost factor**                        | How slow bcrypt is. Ours is 12: each +1 doubles the work, and 12 is about 250–400 ms per check.                                                                                                             |
+| **CredentialsSignin**                  | The error Auth.js throws when `authorize()` returns `null`. Our sign-in action turns it into 401 "Invalid email or password."                                                                               |
+| **Credentials provider**               | Email/password login handled by our own code (`authorize()`) instead of GitHub or Google. Its accounts have `provider: "credentials"`.                                                                      |
+| **CSRF**                               | A trick that makes your browser send a request to our site without you meaning to. Auth.js endpoints and Next server actions have built-in protection against it.                                           |
+| **Dummy hash**                         | A bcrypt hash of a random password nobody knows. We check against it when an email doesn't exist, so the failure takes as long as a real check.                                                             |
+| **Duplicate key error (E11000)**       | MongoDB's error when a write breaks a unique index, e.g. two sign-ups with the same email at the same moment. `handleError` turns it into a 409.                                                            |
+| **Dynamic import**                     | `await import("...")`: loads a module only when that line runs. We use it so Mongoose is loaded only while signing in, not on every proxy request.                                                          |
+| **Hash**                               | A one-way scramble of a password. You can check a password against it, but you can't turn it back into the password. bcrypt also adds a random **salt**, so the same password hashes differently each time. |
+| **JWT**                                | JSON Web Token. A small signed (here also encrypted) bundle of data. Ours holds the user id, name, email and picture, and lives in the session cookie.                                                      |
+| **Linking**                            | Attaching a new GitHub/Google Account to an existing User with the same email, instead of creating a second user.                                                                                           |
+| **OAuth**                              | "Sign in with GitHub/Google": the provider confirms who you are and sends us your profile. We never see your GitHub/Google password.                                                                        |
+| **Provider**                           | Where a login comes from: `github`, `google` or `credentials`.                                                                                                                                              |
+| **`providerAccountId`**                | The user's id **at the provider** (e.g. a GitHub user number). For `credentials` it's the email. Together with `provider` it's unique.                                                                      |
+| **Proxy (`proxy.ts`)**                 | Next 16's name for middleware. It runs before each page request (not `/api`). Ours only attaches the session and blocks nothing yet.                                                                        |
+| **Rate limiting**                      | Capping how many attempts someone can make (e.g. 5 logins per minute). Not done yet. It stops password guessing.                                                                                            |
+| **Route handler**                      | A file like `app/api/.../route.ts` that answers HTTP requests. Ours under `/api/users` and `/api/accounts` are public right now.                                                                            |
+| **`select: false`**                    | A Mongoose field option: the field (`password`) is left out of queries unless you ask with `.select("+password")`. Stops the hash from leaking by accident.                                                 |
+| **Server action**                      | An async function in a `"use server"` file that the browser can call like a function. Under the hood it's a public POST endpoint, so always validate.                                                       |
+| **`server-only`**                      | An import that makes the build fail if the file ever ends up in browser code. Used for private helpers like `verifyCredentials`.                                                                            |
+| **Session**                            | "Who is signed in right now." Here it's the decrypted JWT cookie: `{ user: { id, name, email, image }, expires }`. There's no session table in the DB.                                                      |
+| **`SessionProvider` / `useSession()`** | Make the session available to client components. The layout passes in the server's session so there's no extra fetch.                                                                                       |
+| **`signIn()` / `signOut()`**           | Start or end a session. The server versions (from `@/auth`) are used in server actions; the client version (`next-auth/react`) is used by the GitHub/Google buttons.                                        |
+| **Slug**                               | A URL-safe version of text: `"John Doe"` → `"john-doe"`. Used to make usernames from OAuth names.                                                                                                           |
+| **`token.sub`**                        | "Subject": the user id stored in the JWT. We make sure it's **our** MongoDB user id, never the GitHub/Google id.                                                                                            |
+| **Transaction**                        | A group of DB writes that are saved all together or not at all. Used so a User is never saved without its Account.                                                                                          |
+| **Unique index**                       | A DB rule that no two documents can share a value (e.g. `email`, `username`, or `provider` + `providerAccountId`). The final guard against duplicates.                                                      |
+| **User**                               | The person: profile data (name, username, email, image...). Stored in the `users` collection.                                                                                                               |
+| **User enumeration**                   | Finding out which emails have accounts from different error messages or response times. Our sign-in prevents it (see 0.4).                                                                                  |
+| **Zod schema**                         | A description of valid input (e.g. `SignInSchema`). `safeParse` checks data against it and also cleans it (trims and lowercases emails).                                                                    |
