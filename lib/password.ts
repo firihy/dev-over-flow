@@ -10,3 +10,7 @@ const SALT_ROUNDS = 12;
 // bcrypt adds a random salt, so the same password hashes differently each time.
 export const hashPassword = (password: string) =>
   bcrypt.hash(password, SALT_ROUNDS);
+
+// true when `password` is the one that produced `hash`
+export const verifyPassword = (password: string, hash: string) =>
+  bcrypt.compare(password, hash);
