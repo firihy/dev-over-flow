@@ -2,9 +2,12 @@
 
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
+import { Loader2Icon } from "lucide-react";
 import dynamic from "next/dynamic";
-import { type KeyboardEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type KeyboardEvent, useRef, useState, useTransition } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import type { z } from "zod";
 
 import TagCard from "@/components/cards/TagCard";
@@ -17,6 +20,8 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import ROUTES from "@/constants/routes";
+import { createQuestion } from "@/lib/actions/question.action";
 import { AskQuestionSchema } from "@/lib/validations";
 
 // The editor touches `window`, so it can only render in the browser
@@ -42,9 +47,16 @@ const RequiredMark = () => (
   </span>
 );
 
+// The fields a server error can point at
+const FIELD_NAMES = ["title", "content", "tags"] as const;
+const isFieldName = (name: string): name is (typeof FIELD_NAMES)[number] =>
+  (FIELD_NAMES as readonly string[]).includes(name);
+
 const QuestionForm = () => {
-  // Lets us reset the editor once questions can be submitted
+  const router = useRouter();
   const editorRef = useRef<MDXEditorMethods>(null);
+  // True while the question's page loads after a successful submit
+  const [isNavigating, startNavigation] = useTransition();
 
   const form = useForm<QuestionFormValues>({
     resolver: standardSchemaResolver(AskQuestionSchema),
@@ -82,9 +94,43 @@ const QuestionForm = () => {
     addTag(tags, onChange);
   };
 
-  const handleCreateQuestion: SubmitHandler<QuestionFormValues> = async () => {
-    // TODO: Save the question
+  const handleCreateQuestion: SubmitHandler<QuestionFormValues> = async (
+    data,
+  ) => {
+    let result;
+    try {
+      result = await createQuestion(data);
+    } catch {
+      // The action couldn't be reached (offline, server down...)
+      toast.error("Something went wrong", {
+        description: "Please check your connection and try again.",
+      });
+      return;
+    }
+
+    if (result.success) {
+      toast.success("Question posted");
+      // In a transition, so the button stays disabled until the new page
+      // shows. Otherwise a second click could post the question twice.
+      startNavigation(() => router.push(ROUTES.QUESTION(result.data._id)));
+      return;
+    }
+
+    // Errors about one of our fields go under that field; anything else
+    // (e.g. 401 when the session expired) becomes a toast
+    const { message, details = {} } = result.error;
+    let shownOnField = false;
+    for (const [field, messages] of Object.entries(details)) {
+      if (!isFieldName(field) || !messages[0]) continue;
+      form.setError(field, { message: messages[0] });
+      shownOnField = true;
+    }
+    if (!shownOnField) {
+      toast.error("Couldn't post your question", { description: message });
+    }
   };
+
+  const isBusy = form.formState.isSubmitting || isNavigating;
 
   return (
     <form onSubmit={form.handleSubmit(handleCreateQuestion)}>
@@ -195,10 +241,17 @@ const QuestionForm = () => {
         <div className="mt-6 flex justify-end">
           <Button
             type="submit"
-            disabled={form.formState.isSubmitting}
+            disabled={isBusy}
             className="primary-gradient text-light-900! min-h-12 w-fit px-4 py-3"
           >
-            Ask a Question
+            {isBusy ? (
+              <>
+                <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                Submitting...
+              </>
+            ) : (
+              "Ask a Question"
+            )}
           </Button>
         </div>
       </FieldGroup>
