@@ -7,204 +7,71 @@ app finds out who is signed in.
 adapter), Mongoose for users and accounts, Zod for validation, and bcrypt for
 passwords.
 
-**Status:**
+**Status:** GitHub, Google and email/password sign-up, sign-in and sign-out
+all work end to end. What's still missing is in
+[Current limitations](#5-current-limitations).
 
-- GitHub and Google sign-in work end to end, tested with real logins.
-- Email/password sign-up and sign-in work end to end.
-- What's still missing is listed in [Not done yet](#8-not-done-yet).
+## The whole thing in one picture
 
-New to the terms? Start with the [mental models](#0-mental-models-read-this-first) and keep the [glossary](#11-glossary) open.
+- A **User** is a person. An **Account** is one key on their keyring: GitHub,
+  Google or a password.
+- Signing in means showing any key. We follow it to the person and get **our**
+  user id.
+- That id goes on a **wristband**: an encrypted cookie (a JWT).
+- After that, the app only glances at the wristband. It never asks which door
+  you came through, and it doesn't touch the database to do it.
+
+```mermaid
+flowchart LR
+  G[GitHub] --> Q{"Who is this<br/>in OUR database?"}
+  O[Google] --> Q
+  E[Email + password] --> Q
+  Q --> ID["our user id<br/>(token.sub)"]
+  ID --> W["🎟️ wristband<br/>= encrypted JWT cookie"]
+  W --> APP["auth() / useSession()<br/>session.user.id"]
+```
+
+**Reading order:** to understand the flow, read sections 1 → 4 in order. To
+look something up, jump to [Limitations](#5-current-limitations),
+[Reference](#6-implementation-reference) or the [Glossary](#7-glossary).
 
 ---
 
-## 0. Mental models (read this first)
+## 1. Identity and data
 
-Seven small ideas explain almost everything below. If a detail later is
-confusing, come back here and find which idea it belongs to.
-
-### 0.1 A person and their keys: User vs Account
-
-Think of a **User** as a person and **Accounts** as the keys on their
-keyring. Each key opens the same door, the person's profile.
+### Person, keys, wristband
 
 ```mermaid
 flowchart LR
   subgraph Keyring["One person's keyring"]
-    K1["🔑 GitHub key<br/>(Account: github)"]
-    K2["🔑 Google key<br/>(Account: google)"]
-    K3["🔑 Password key<br/>(Account: credentials)"]
+    K1["🔑 Account: github"]
+    K2["🔑 Account: google"]
+    K3["🔑 Account: credentials"]
   end
-  K1 --> P["👤 User<br/>name, username, email, image"]
+  K1 --> P["👤 User"]
   K2 --> P
   K3 --> P
+  P --> T["token.sub = User._id<br/>→ session.user.id"]
 ```
 
-- Signing in = showing **any** key. We look up the key, then follow it to
-  the person.
-- A new GitHub/Google key with an email we already know is **added to that
-  person's keyring** (linking).
-- A new **password** key for an email we already know is **refused**.
-  Anyone could type your email, so that would hand them a key to your
-  account.
+In code terms:
 
-### 0.2 Three doors, one wristband
+| Idea             | What it is in the code                                                |
+| ---------------- | --------------------------------------------------------------------- |
+| Person           | A `User` document (`users` collection).                               |
+| Key              | An `Account` document, found by `provider` + `providerAccountId`.     |
+| Wristband        | The session cookie: an encrypted JWT.                                 |
+| Name on the band | `token.sub`, always **our** `User._id`, never the GitHub/Google id.   |
+| Reading it       | `session.user.id`, copied from `token.sub` by the `session` callback. |
 
-There are three ways in: GitHub, Google and email/password. Each one does
-its own checks, but they all end the same way: we work out **our** user id
-and put it on a wristband, the session cookie.
+Two rules for adding keys:
 
-```mermaid
-flowchart LR
-  G[GitHub door] --> Q{"Who is this<br/>in OUR database?"}
-  O[Google door] --> Q
-  E[Email + password door] --> Q
-  Q --> ID["our user id<br/>(token.sub)"]
-  ID --> W["🎟️ wristband<br/>= encrypted JWT cookie"]
-```
+- A new **GitHub/Google** key whose email we already know is **added to that
+  person's keyring** (linking). See [Find, link or create](#find-link-or-create).
+- A new **password** key for an email we already know is **refused**. Anyone
+  could type your email, so that would hand them a key to your account.
 
-The rest of the app never asks _how_ you got in. It only reads the
-wristband: `session.user.id` is always our MongoDB user id, whichever door
-you used.
-
-### 0.3 Check hard once, glance after
-
-| Moment                  | What happens                                                                           | Touches the DB? | Speed                                 |
-| ----------------------- | -------------------------------------------------------------------------------------- | --------------- | ------------------------------------- |
-| **Signing in** (rare)   | Ask GitHub/Google or check the password, find or create the user, issue the wristband. | Yes             | Slow on purpose: bcrypt takes ~400 ms |
-| **Every request after** | `auth()` decrypts the cookie and reads the id.                                         | **No**          | Very fast                             |
-
-That's why the DB helpers are loaded with `await import(...)` inside the
-sign-in code only. `proxy.ts` reads the wristband on every page request and
-must stay light.
-
-The flip side: the wristband is a **photo taken at sign-in**. If the user
-changes their name or picture later, the avatar keeps the old photo until
-they sign in again.
-
-### 0.4 The bouncer doesn't explain
-
-When a password sign-in fails, the bouncer says only **"Invalid email or
-password."** Never "no such email" or "wrong password", and not even faster
-or slower depending on why. Each hint would tell an attacker which emails
-have accounts. So `verifyCredentials` returns `null` for every failure,
-and it still runs bcrypt (against a dummy hash) when the email is unknown.
-
-Sign-up can't hide this ("this email already exists"), which is normal for
-sign-up forms.
-
-### 0.5 Public buttons vs back-office helpers
-
-| Kind                                      | Where                           | Who can call it                             | Rule                                                                    |
-| ----------------------------------------- | ------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
-| **Rulebook**                              | `auth.ts`                       | Auth.js                                     | Decides who may sign in and what goes on the wristband.                 |
-| **Public buttons** (`"use server"`)       | `lib/actions/*.action.ts`       | **Anyone**: every export is a POST endpoint | Validate everything (`action()` + Zod), trust nothing from the browser. |
-| **Back-office helpers** (`"server-only"`) | `lib/auth/*`, `lib/password.ts` | Only our server code                        | Can trust their caller. They are never exposed as endpoints.            |
-
-That's why `signInWithOAuth` isn't an API route. A public "link this
-GitHub id to that email" button would let anyone take over any account.
-
-### 0.6 The password is checked in exactly one place
-
-```mermaid
-flowchart LR
-  SU[sign-up action] -- "signIn('credentials')" --> AZ["authorize()<br/>→ verifyCredentials"]
-  SI[sign-in action] -- "signIn('credentials')" --> AZ
-  AZ --> R{password OK?}
-  R -- yes --> W[🎟️ wristband]
-  R -- no --> X[CredentialsSignin → 401]
-```
-
-The actions never compare passwords themselves. They hand the email and
-password to Auth.js, which runs `authorize()`. One place to get right, and
-one place to harden later (for example rate limiting).
-
-### 0.7 All or nothing
-
-Creating a user always means creating **two** documents: a User and its
-first Account. They are written in a **transaction**: either both are saved
-or neither is, so there is never a person with no key, or a key with no
-person. Slow work (bcrypt) happens **before** the transaction, because a
-transaction may retry.
-
----
-
-## 1. The pieces
-
-| File                                                | What it does                                                                                                                                                                                                                             |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.ts`                                           | Auth.js config: the GitHub, Google and Credentials providers, and the `signIn`, `jwt` and `session` callbacks. Exports `handlers`, `auth`, `signIn` and `signOut`.                                                                       |
-| `app/api/auth/[...nextauth]/route.ts`               | Mounts Auth.js at `/api/auth/*` (sign-in, callback, session, sign-out).                                                                                                                                                                  |
-| `proxy.ts`                                          | Next 16 proxy (formerly middleware). It runs `auth` on every page request so the session is available. It skips `/api`, `_next`, images and icons.                                                                                       |
-| `lib/auth/sign-in-with-oauth.ts`                    | Server-only. Finds or creates the User and Account behind a GitHub or Google login, in a transaction.                                                                                                                                    |
-| `lib/auth/verify-credentials.ts`                    | Server-only. `verifyCredentials` checks an email/password login and returns the user or `null`. It takes the same time whether or not the email exists. Only `authorize()` calls it.                                                     |
-| `lib/actions/auth.action.ts`                        | Server actions. `signUpWithCredentials` creates the User and a `credentials` Account in a transaction, then signs the user in. `signInWithCredentials` signs in with email and password. `signOutUser` signs out and goes to `/sign-in`. |
-| `lib/password.ts`                                   | `hashPassword` (bcrypt, cost 12) and `verifyPassword`.                                                                                                                                                                                   |
-| `lib/validations.ts`                                | `SignInSchema`, `SignUpSchema` and `SignInWithOAuthSchema`. Emails are trimmed and lowercased before they are checked.                                                                                                                   |
-| `constants/accounts.ts`                             | `OAUTH_PROVIDERS` (`github`, `google`) and `ACCOUNT_PROVIDERS` (adds `credentials`). It is free of Mongoose, so client code can import it.                                                                                               |
-| `database/user.model.ts`                            | The person: profile data, plus a unique `username` and `email`.                                                                                                                                                                          |
-| `database/account.model.ts`                         | One login method for a user. Unique on `(provider, providerAccountId)`. `password` is `select: false`.                                                                                                                                   |
-| `lib/handlers/action.ts`                            | Server-action helper: validates input, checks the session with `authorize: true`, and connects to the DB. It throws on problems.                                                                                                         |
-| `components/forms/AuthForm.tsx`                     | The sign-in/sign-up form. It runs the server action, shows field errors under the inputs, and on success shows a toast and redirects to `/`.                                                                                             |
-| `components/forms/SocialAuthForm.tsx`               | "Log in with GitHub/Google" buttons. They call `signIn(provider)` from `next-auth/react`.                                                                                                                                                |
-| `components/navigation/LeftSidebar.tsx`             | Uses `auth()` to pick Log Out (a form posting to `signOutUser`) or Log In / Sign Up, and passes the user id to `NavLinks`.                                                                                                               |
-| `components/navigation/navbar/MobileNavigation.tsx` | The same for the phone menu. The Log Out button also closes the menu.                                                                                                                                                                    |
-| `components/navigation/navbar/index.tsx`            | The navbar. Uses `auth()` to show the signed-in user's `UserAvatar`.                                                                                                                                                                     |
-| `components/UserAvatar.tsx`                         | Round avatar linking to `/profile/<id>`. Shows the picture, or the initials when there is none or it fails to load.                                                                                                                      |
-| `app/layout.tsx`                                    | Passes the server session into `<SessionProvider>` for client components.                                                                                                                                                                |
-
-```mermaid
-flowchart LR
-  subgraph Browser
-    SAF[SocialAuthForm<br/>signIn provider]
-    AF[AuthForm<br/>sign-up / sign-in]
-    LO[Log Out forms<br/>sidebar + mobile menu]
-    CC[Client components<br/>useSession]
-  end
-
-  subgraph Next.js server
-    PX[proxy.ts<br/>auth on page requests]
-    RH["/api/auth/[...nextauth]<br/>handlers"]
-    AUTH[auth.ts<br/>providers + callbacks]
-    SIO[lib/auth/sign-in-with-oauth.ts]
-    SIC[lib/auth/verify-credentials.ts]
-    SUA[lib/actions/auth.action.ts<br/>signUpWithCredentials<br/>signInWithCredentials<br/>signOutUser]
-    ACT[lib/handlers/action.ts]
-    RSC[Server components<br/>Navbar, LeftSidebar,<br/>MobileNavigation: auth]
-  end
-
-  subgraph Providers
-    GH[GitHub]
-    GO[Google]
-  end
-
-  DB[(MongoDB<br/>users / accounts)]
-
-  SAF --> RH
-  RH <--> GH
-  RH <--> GO
-  RH --> AUTH
-  AF -- server action --> SUA
-  LO -- server action --> SUA
-  SUA --> ACT
-  SUA -- "signIn('credentials')" --> AUTH
-  SUA --> DB
-  AUTH -- "jwt: dynamic import" --> SIO
-  AUTH -- "authorize: dynamic import" --> SIC
-  SIO --> DB
-  SIC --> DB
-  PX --> AUTH
-  RSC --> AUTH
-  ACT --> AUTH
-  CC -. session from layout .-> RSC
-```
-
----
-
-## 2. Data model
-
-A **User** is a person. An **Account** is one way that person logs in. One
-user can have several accounts. For example, the same email used through
-GitHub and through Google gives one user with two accounts.
+### What each document stores
 
 ```mermaid
 erDiagram
@@ -237,13 +104,24 @@ erDiagram
 | Google      | `google`      | Google user id         | none        |
 | Email/pass. | `credentials` | the email (lowercased) | bcrypt hash |
 
-Why the profile lives on both documents: the provider's name and image are
+**Why the profile is on both documents:** the provider's name and image are
 refreshed on the **Account** at every sign-in. The **User** keeps what the
-person set in their profile, so signing in never overwrites their edits.
+person set on their profile, so signing in never overwrites their edits.
+
+**All or nothing:** creating a user always means creating two documents, a
+User and its first Account. They are written in a **transaction**, so there is
+never a person with no key or a key with no person. Unique indexes on
+`email`, `username` and `provider` + `providerAccountId` are the final guard
+against duplicates.
+
+**Source files:** `database/user.model.ts`, `database/account.model.ts`,
+`constants/accounts.ts`.
 
 ---
 
-## 3. OAuth sign-in, step by step
+## 2. OAuth journey (GitHub, Google)
+
+### From provider button to session cookie
 
 ```mermaid
 sequenceDiagram
@@ -269,7 +147,7 @@ sequenceDiagram
     CB-->>NA: true
     NA->>CB: jwt({ token, user, account, profile })
     CB->>S: await import(...), then signInWithOAuth(...)
-    S->>DB: transaction: find/link/create (see section 4)
+    S->>DB: transaction: find, link or create
     DB-->>S: userId
     S-->>CB: { userId }
     CB-->>NA: token.sub = our userId
@@ -286,18 +164,17 @@ What the `jwt` callback sends to `signInWithOAuth`:
 | `user.name`         | `user.name`, else the GitHub `login`, else the part of the email before `@`. Cut to 50 characters. |
 | `user.email`        | `user.email` (required: `signIn` already rejected users without one)                               |
 | `user.image`        | `user.image` or `undefined`                                                                        |
-| `user.username`     | The GitHub `login`, else the name. It is only a suggestion and gets slugified later.               |
+| `user.username`     | The GitHub `login`, else the name. Only a suggestion; it is made into a username later.            |
 
-If `signInWithOAuth` throws, the sign-in fails. That is on purpose: if the
-callback returned the token anyway, `token.sub` would still be the GitHub or
-Google id, which isn't one of our user ids.
+If `signInWithOAuth` throws, the sign-in fails on purpose. If the callback
+returned the token anyway, `token.sub` would still be the GitHub or Google id,
+which isn't one of our user ids.
 
----
+### Find, link or create
 
-## 4. Inside `signInWithOAuth`
-
-Everything runs in `connection.transaction(...)`. A new user is never left
-without an account, and temporary errors retry the whole function.
+`signInWithOAuth` validates its input with `SignInWithOAuthSchema`, then runs
+everything inside `connection.transaction(...)`. A temporary error retries the
+whole function.
 
 ```mermaid
 flowchart TD
@@ -308,29 +185,34 @@ flowchart TD
   F -- yes --> UPD[Refresh account name/image] --> R1[return account.userId]
   F -- no --> E{User with<br/>this email?}
   E -- yes --> LINK[Use that user<br/>= link new login]
-  E -- no --> UN[Build username]
+  E -- no --> UN[Choose a username]
   UN --> NEW[Create User]
   LINK --> ACC[Create Account]
   NEW --> ACC
   ACC --> R2[return user._id]
 ```
 
-### Building the username
+**Why it isn't an API route:** a public "link this GitHub id to that email"
+endpoint would let anyone take over any account. Only the `jwt` callback calls
+`signInWithOAuth`, after GitHub or Google has confirmed who the user is. The
+file is `server-only`.
 
-```mermaid
-flowchart LR
-  S1["suggestion<br/>(GitHub login / name)"] --> SL1{slug length ≥ 3?}
-  SL1 -- yes --> BASE
-  SL1 -- no --> S2[part of the email before @] --> SL2{slug length ≥ 3?}
-  SL2 -- yes --> BASE
-  SL2 -- no --> USR["'user'"] --> BASE
-  BASE[base] --> TAKEN{taken?}
-  TAKEN -- no --> DONE[use base]
-  TAKEN -- yes --> SUF["base-xxxx<br/>(random 4 hex, up to 5 tries)"] --> DONE
-```
+**Linking trusts the provider's email.** Google verifies emails. A GitHub
+primary email may not be verified (see
+[limitations](#5-current-limitations)).
 
-`slugify(text, { lower, strict, trim })` keeps only `a-z`, `0-9` and `-`.
-Some examples:
+### Choosing a username
+
+Usernames must be unique and 3–30 characters. `slugify(text, { lower, strict,
+trim })` keeps only `a-z`, `0-9` and `-`.
+
+1. Slugify the suggestion (GitHub login or name). If it's at least 3
+   characters, that's the base.
+2. Otherwise slugify the part of the email before `@`. If it's at least 3
+   characters, that's the base.
+3. Otherwise the base is `user`.
+4. If the base is free, use it. If not, add `-` and 4 random hex characters,
+   trying up to 5 times.
 
 | Input                      | Result                                                                 |
 | -------------------------- | ---------------------------------------------------------------------- |
@@ -338,13 +220,45 @@ Some examples:
 | `محمد`, email `x@mail.com` | slug is empty, the email part is too short, so `user` (or `user-d274`) |
 | GitHub login `octocat`     | `octocat`                                                              |
 
+### When OAuth fails
+
+| Situation                                             | What the user sees                                                         |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| Unknown provider, or no email                         | `signIn` returns `false`, which shows the Auth.js **AccessDenied** page.   |
+| Invalid data from the provider (e.g. a bad image URL) | `ValidationError` is thrown in `jwt`, and Auth.js shows its error page.    |
+| A DB error or no free username                        | The transaction is aborted, nothing is saved, and the error page is shown. |
+| The user cancels the consent screen                   | Auth.js sends them back with an error, and `SocialAuthForm` shows a toast. |
+
+**Source files:** `auth.ts`, `lib/auth/sign-in-with-oauth.ts`,
+`lib/validations.ts` (`SignInWithOAuthSchema`),
+`app/api/auth/[...nextauth]/route.ts`, `components/forms/SocialAuthForm.tsx`.
+
 ---
 
-## 5. Email/password sign-up
+## 3. Email and password journeys
 
-The sign-up page passes the `signUpWithCredentials` server action to
-`AuthForm` as `onSubmit`. Server actions are public POST endpoints, so the
-action validates its own input with `SignUpSchema`.
+Both forms use `AuthForm`, which calls a **server action** passed in as
+`onSubmit`. Server actions are public POST endpoints, so each action validates
+its own input again with Zod (via `action()`), even though the form already
+checked it in the browser. Emails are trimmed and lowercased before checking.
+
+**The password is checked in exactly one place.** Neither action compares
+passwords. Both call `signIn("credentials")`, and Auth.js runs the Credentials
+provider's `authorize()`, which calls `verifyCredentials`:
+
+```mermaid
+flowchart LR
+  SU[sign-up action] -- "signIn('credentials')" --> AZ["authorize()<br/>→ verifyCredentials"]
+  SI[sign-in action] -- "signIn('credentials')" --> AZ
+  AZ --> R{password OK?}
+  R -- yes --> W[🎟️ session cookie]
+  R -- no --> X[CredentialsSignin → 401]
+```
+
+One place to get right, and one place to harden later (for example rate
+limiting).
+
+### Sign-up
 
 ```mermaid
 sequenceDiagram
@@ -361,48 +275,38 @@ sequenceDiagram
   SA->>SA: action(): validate, trim + lowercase email
   alt invalid input
     SA-->>F: 400 + field errors
-  end
-  SA->>SA: hashPassword (bcrypt, cost 12, before the transaction)
-  SA->>DB: transaction start
-  SA->>DB: email taken? username taken?
-  alt taken
-    SA-->>F: 400 { email / username: [message] }
-  else free
-    SA->>DB: create User + Account(provider "credentials",<br/>providerAccountId = email, password = hash)
-    DB-->>SA: commit
-    SA->>AJ: signIn("credentials", { email, password, redirect: false })
-    AJ-->>SA: session cookie set
-    SA-->>F: { success: true }
-    F->>U: toast "Signed up successfully", go to "/"
+  else valid
+    SA->>SA: hashPassword (bcrypt, cost 12)
+    SA->>DB: transaction: email taken? username taken?
+    alt taken
+      SA-->>F: 400 { email / username: [message] }
+    else free
+      SA->>DB: create User + Account(provider "credentials",<br/>providerAccountId = email, password = hash)
+      DB-->>SA: commit
+      SA->>AJ: signIn("credentials", { email, password, redirect: false })
+      AJ-->>SA: session cookie set
+      SA-->>F: { success: true }
+      F->>U: toast "Signed up successfully", go to "/"
+    end
   end
 ```
 
-Details:
-
-- **Hash before the transaction.** bcrypt is slow on purpose. The
-  transaction may retry, and the hash shouldn't be recomputed each time.
-- **Both "taken" checks are reported together** as one `ValidationError`,
-  so the form can show "email exists" and "username taken" at once, each
-  under its field.
-- **A race between two sign-ups** that both pass the checks is caught by
-  the unique indexes. `handleError` turns the duplicate-key error into a 409.
+- **Hash before the transaction.** bcrypt is slow on purpose, and a
+  transaction may retry. The hash shouldn't be recomputed each time.
+- **Both "taken" checks are reported together** as one `ValidationError`, so
+  the form shows "email exists" and "username taken" at once, each under its
+  field.
+- **A race between two sign-ups** that both pass the checks is caught by the
+  unique indexes. `handleError` turns the duplicate-key error into a 409.
 - **Sign-in runs after the commit, in its own `try`.** If it fails, the
-  account still exists, so the user gets "Your account was created, but we
-  couldn't sign you in" instead of a false "sign-up failed".
+  account still exists, so the user is told to sign in instead of seeing a
+  false "sign-up failed".
 - **An email that already belongs to a GitHub/Google user is rejected.**
   Linking it would let anyone who knows your email set a password on your
-  account.
+  account. This does reveal that the email is registered, which every
+  sign-up form without email verification does.
 
----
-
-## 6. Email/password sign-in
-
-The sign-in page passes the `signInWithCredentials` server action to
-`AuthForm`. The action doesn't check the password itself. It calls
-`signIn("credentials")`, and Auth.js runs the Credentials provider's
-`authorize()`, which calls `verifyCredentials`. So the password is checked
-in exactly one place, for both sign-in and the automatic sign-in after
-sign-up.
+### Sign-in
 
 ```mermaid
 sequenceDiagram
@@ -421,71 +325,97 @@ sequenceDiagram
   SA->>SA: action(): validate, trim + lowercase email
   alt invalid input
     SA-->>F: 400 + field errors
-  end
-  SA->>NA: signIn("credentials", { email, password, redirect: false })
-  NA->>AZ: authorize(credentials)
-  AZ->>V: await import(...), then verifyCredentials(credentials)
-  V->>DB: Account.findOne({ provider: "credentials",<br/>providerAccountId: email }).select("+password")
-  alt no account
-    V->>V: bcrypt.compare against a dummy hash<br/>(same time as a real check)
-    V-->>AZ: null
-  else account found
-    V->>V: verifyPassword(password, account.password)
-    alt wrong password
+  else valid
+    SA->>NA: signIn("credentials", { email, password, redirect: false })
+    NA->>AZ: authorize(credentials)
+    AZ->>V: await import(...), then verifyCredentials(credentials)
+    V->>DB: Account.findOne({ provider: "credentials",<br/>providerAccountId: email }).select("+password")
+    alt no account
+      V->>V: bcrypt.compare against a dummy hash
       V-->>AZ: null
-    else right password
-      V->>DB: User.findById(account.userId)
-      V-->>AZ: { id, name, email, image }
+    else account found
+      V->>V: verifyPassword(password, account.password)
+      alt wrong password
+        V-->>AZ: null
+      else right password
+        V->>DB: User.findById(account.userId)
+        V-->>AZ: { id, name, email, image }
+      end
     end
-  end
-  alt null
-    NA-->>SA: throws CredentialsSignin
-    SA-->>F: 401 "Invalid email or password."
-    F->>U: toast "Sign-in failed"
-  else user
-    NA->>NA: signIn callback allows credentials<br/>jwt: token.sub = user.id (our id)
-    NA-->>SA: session cookie set
-    SA-->>F: { success: true }
-    F->>U: toast "Signed in successfully", go to "/"
+    alt null
+      NA-->>SA: throws CredentialsSignin
+      SA-->>F: 401 "Invalid email or password."
+      F->>U: toast "Sign-in failed"
+    else user
+      NA->>NA: signIn callback allows credentials<br/>jwt: token.sub = user.id (our id)
+      NA-->>SA: session cookie set
+      SA-->>F: { success: true }
+      F->>U: toast "Signed in successfully", go to "/"
+    end
   end
 ```
 
-Why every failure gives the same answer: different errors for "unknown
-email", "no password on this account (GitHub/Google user)" and "wrong
-password" would tell an attacker which emails have an account and how they
-log in.
+**The bouncer doesn't explain.** Different errors for "unknown email", "no
+password on this account (GitHub/Google user)" and "wrong password" would
+tell an attacker which emails have an account and how they log in (user
+enumeration). So:
 
-- **Same message:** `verifyCredentials` returns `null` for all of them, and
-  the action turns Auth.js's `CredentialsSignin` into one 401.
-- **Same timing:** an unknown email is checked against a dummy hash. Tested:
-  an unknown email and a wrong password both take about 410 ms.
-- **Other errors** (for example the database is down) aren't
-  `CredentialsSignin`, so they go through `handleError`. They are logged as
-  real errors and show as a 500.
+- `verifyCredentials` returns `null` for every one of them, and the action
+  turns Auth.js's `CredentialsSignin` into one 401 message.
+- For an unknown email, it still runs bcrypt against a dummy hash, so the
+  answer takes about as long as a real check. This removes the obvious timing
+  difference; it doesn't promise identical timing.
+- Other errors (for example the database is down) aren't
+  `CredentialsSignin`, so they go through `handleError`, are logged as real
+  errors and show as a 500.
+
+### When email/password fails
+
+| Situation                                                  | What the user sees                                                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Invalid input (either form)                                | Messages under the fields (checked in the browser, then again on the server).                     |
+| Sign-up: email or username taken                           | "An account with this email already exists." / "This username is already taken." under the field. |
+| Sign-up: two sign-ups race                                 | 409 "Duplicate value for …" toast.                                                                |
+| Sign-up: saved, but the sign-in afterwards failed          | Toast: "Your account was created, but we couldn't sign you in. Please sign in."                   |
+| Sign-up: server unreachable                                | Toast: "Something went wrong. Please check your connection and try again."                        |
+| Sign-in: unknown email, wrong password, or OAuth-only user | Toast "Sign-in failed: Invalid email or password." (401, the same for every cause).               |
+| Sign-in: database or other server error                    | Toast with a 500 error. The real error is logged on the server.                                   |
+
+**Source files:** `lib/actions/auth.action.ts`,
+`lib/auth/verify-credentials.ts`, `lib/password.ts`, `lib/validations.ts`
+(`SignInSchema`, `SignUpSchema`), `lib/handlers/action.ts`,
+`components/forms/AuthForm.tsx`, `auth.ts` (Credentials provider).
 
 ---
 
-## 7. Reading the session
+## 4. Session and the signed-in experience
 
-There is no session table. The session is an encrypted JWT in a cookie. The
-`session` callback copies `token.sub` (our user id) to `session.user.id`.
-This works the same for every provider:
+### Reading identity
 
-- **OAuth:** the `jwt` callback sets `token.sub`.
-- **Credentials:** Auth.js sets `token.sub` from the `id` that
-  `authorize()` returned.
+There is no session table. The session is the encrypted JWT cookie, and the
+`session` callback copies `token.sub` (our user id) to `session.user.id`. It
+works the same for every provider:
+
+- **OAuth:** the `jwt` callback sets `token.sub` to the id from
+  `signInWithOAuth`.
+- **Credentials:** Auth.js sets `token.sub` from the `id` that `authorize()`
+  returned.
 
 ```mermaid
 sequenceDiagram
   participant B as Browser
   participant PX as proxy.ts
-  participant RSC as Server component / action
+  participant L as app/layout.tsx
+  participant RSC as Server components / actions
   participant A as auth()
+  participant C as Client components
 
   B->>PX: GET /some-page (with cookie)
   PX->>A: decode JWT
   A-->>PX: session (or null)
-  PX->>RSC: render
+  PX->>L: render
+  L->>A: auth()
+  L->>C: SessionProvider gets the session<br/>→ useSession()
   RSC->>A: auth()
   A-->>RSC: { user: { id, name, email, image } }
   Note over A: jwt() runs again but returns early<br/>(no `account` outside sign-in),<br/>so the DB isn't touched
@@ -493,163 +423,164 @@ sequenceDiagram
 
 Where it's used:
 
-- **Server components:** `const session = await auth()` (`Navbar`, `LeftSidebar`, `MobileNavigation`, `app/layout.tsx`).
-- **Server actions:** `action({ ..., authorize: true })` throws `UnauthorizedError` (401) when signed out.
-- **Client components:** `useSession()`, through the `SessionProvider` set up in `app/layout.tsx`.
-- **Sign-out:** the `signOutUser` server action (see below).
+- **Server components:** `await auth()` (`Navbar`, `LeftSidebar`,
+  `MobileNavigation`, `app/layout.tsx`).
+- **Server actions:** `action({ ..., authorize: true })` throws
+  `UnauthorizedError` (401) when signed out.
+- **Client components:** `useSession()`. The layout passes the server's
+  session into `SessionProvider`, so there's no extra fetch.
 
-**Keeping Mongoose out of the proxy:** `proxy.ts` runs `auth.ts` on every
-page request. Both DB helpers are loaded with `await import(...)` only while
-signing in, so ordinary requests never load Mongoose.
+**Check hard once, glance after.** Signing in is rare and slow on purpose
+(bcrypt, provider round trips, database writes). Every request after that only
+decrypts the cookie. `proxy.ts` runs `auth.ts` on every page request, so both
+database helpers are loaded with `await import(...)` only while signing in.
+Ordinary requests never load Mongoose.
 
-### What the signed-in user sees
+### Avatar and navigation
 
 | Place                         | Signed out      | Signed in                                                    |
 | ----------------------------- | --------------- | ------------------------------------------------------------ |
 | Navbar                        | —               | `UserAvatar`: the picture, or initials ("Zed Avatar" → "ZA") |
 | Left sidebar (tablet/desktop) | Log In, Sign Up | Log Out. "Profile" link in `NavLinks`                        |
-| Mobile menu (phone)           | Log In, Sign Up | Log Out. "Profile" link in `NavLinks`                        |
+| Mobile menu (phone)           | Log In, Sign Up | Log Out (also closes the menu). "Profile" link in `NavLinks` |
 
 The avatar's name and picture come from the **session**, not the database.
-They are copied into the JWT at sign-in, so a profile change only shows
-after the next sign-in.
+The wristband is a photo taken at sign-in, so a profile change only shows
+after the next sign-in (see [limitations](#5-current-limitations)).
 
-`UserAvatar` uses Radix's `AvatarImage` (a plain `<img>`), not
-`next/image`. Radix only shows the initials fallback when its own image
-fails to load. `referrerPolicy="no-referrer"` is there because Google avatar
-URLs can refuse requests that say which site they came from.
+`UserAvatar` uses Radix's `AvatarImage` (a plain `<img>`), not `next/image`,
+because Radix only shows the initials fallback when its own image fails to
+load. `referrerPolicy="no-referrer"` is there because Google avatar URLs can
+refuse requests that say which site they came from.
 
 ### Signing out
 
-Both Log Out buttons are forms that post to one server action,
-`signOutUser`.
+Both Log Out buttons are forms that post to one server action, `signOutUser`.
+It calls `signOut({ redirectTo: "/sign-in" })`, which deletes the session
+cookie and redirects. The pages then render signed out: no avatar, and Log In
+/ Sign Up instead of Log Out.
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor U as User
-  participant F as Log Out form<br/>(sidebar or mobile menu)
-  participant SA as signOutUser<br/>(server action)
-  participant AJ as Auth.js signOut
-  participant B as Browser
+There is no session row to remove from the database, because the session is
+only the cookie. A copy of the token taken before sign-out stays valid until
+it expires (30 days by default).
 
-  U->>F: Click "Log Out"
-  Note over F: Mobile: SheetClose on the button<br/>also closes the menu
-  F->>SA: POST (server action)
-  SA->>AJ: signOut({ redirectTo: "/sign-in" })
-  AJ-->>B: Delete the session cookie
-  AJ-->>B: Redirect to /sign-in
-  B->>B: Server components render signed out<br/>(no avatar, Log In / Sign Up)
-```
-
-Because the session is only a cookie (JWT), signing out just deletes that
-cookie. There is no session row to remove from the database. A copy of the
-token taken before sign-out stays valid until it expires (30 days by
-default).
+**Source files:** `auth.ts` (`jwt`, `session` callbacks), `proxy.ts`,
+`app/layout.tsx`, `components/UserAvatar.tsx`,
+`components/navigation/navbar/index.tsx`,
+`components/navigation/LeftSidebar.tsx`,
+`components/navigation/navbar/MobileNavigation.tsx`,
+`lib/actions/auth.action.ts` (`signOutUser`).
 
 ---
 
-## 8. Not done yet
+## 5. Current limitations
 
-| Gap                                                                                                                                                                 | Where                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| No rate limit on login or sign-up attempts, so passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts` |
-| bcrypt only uses the first 72 bytes of a password, but the schema allows 100 characters.                                                                            | `passwordSchema`            |
-| The avatar and name in the session don't update after a profile change until the next sign-in. Fix: refresh them in the `jwt` callback with `trigger === "update"`. | `auth.ts`                   |
-| Usernames are case-sensitive: `John` and `john` can both exist.                                                                                                     | `user.model.ts`             |
-| No email verification for email/password sign-ups.                                                                                                                  | —                           |
-| No route protection (no `authorized` callback in the proxy).                                                                                                        | `proxy.ts`                  |
-| The `/api/users` and `/api/accounts` routes don't check auth.                                                                                                       | `app/api/**`                |
-
----
-
-## 9. Security notes
-
-- **No public "link account" endpoint.** `signInWithOAuth` is deliberately
-  not an API route. A public route that links any provider id to any email
-  would let someone take over an account. Only the `jwt` callback calls it,
-  after GitHub or Google has confirmed who the user is.
-- **Email linking trusts the provider.** Google verifies emails. A GitHub
-  primary email may not be verified, so someone with an unverified GitHub
-  email matching yours could be linked to your user. A possible hardening:
-  only link when the email is verified, for example by checking
-  `profile.email_verified` for Google and the GitHub emails API for GitHub.
-- **Sign-up reveals that an email is registered** ("An account with this
-  email already exists"). Every sign-up form without email verification
-  does this. Sign-in doesn't (see section 6).
-- **`/api/*` is not protected by the proxy.** The matcher excludes `api`.
-  `/api/users` and `/api/accounts` are currently public, so each route must
-  check `auth()` itself before it is exposed for real.
-- **The proxy doesn't block any pages.** It only attaches the session.
-- **Passwords.** They are hashed with bcrypt at cost 12, and the hash is
-  never read unless `.select("+password")` asks for it. Only `lib/password.ts`
-  touches bcrypt.
-- **Secrets.** These come from `.env.local` (see `.env.example`):
-  `AUTH_SECRET`, `AUTH_TRUST_HOST`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`,
-  `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and `MONGODB_URI`.
+| Limitation                                                                                      | Consequence                                                                                                          | Code                        |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| No rate limit on sign-in or sign-up attempts.                                                   | Passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts` |
+| OAuth linking trusts the provider's email; GitHub's primary email may be unverified.            | Someone with an unverified GitHub email matching yours could be linked to your user. Fix: only link verified emails. | `sign-in-with-oauth.ts`     |
+| No email verification for email/password sign-ups.                                              | Anyone can register any email address.                                                                               | —                           |
+| bcrypt only uses the first 72 bytes, but the schema allows 100 characters.                      | Long passwords that share the first 72 bytes match each other.                                                       | `passwordSchema`            |
+| Session name/avatar aren't refreshed after a profile change.                                    | Stale until the next sign-in. Fix: refresh in `jwt` with `trigger === "update"`.                                     | `auth.ts`                   |
+| Usernames are case-sensitive.                                                                   | `John` and `john` can both exist.                                                                                    | `user.model.ts`             |
+| No route protection (no `authorized` callback; the proxy only attaches the session).            | Every page is reachable signed out.                                                                                  | `proxy.ts`                  |
+| `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`. | Those routes are public.                                                                                             | `app/api/**`                |
 
 ---
 
-## 10. Error cases
+## 6. Implementation reference
 
-| Situation                                                           | What the user sees                                                                                |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| OAuth: unknown provider, or no email                                | `signIn` returns `false`, which shows the Auth.js **AccessDenied** page.                          |
-| OAuth: invalid data from the provider (e.g. a bad image URL)        | `ValidationError` is thrown in `jwt`, and Auth.js shows its error page.                           |
-| OAuth: a DB error or no free username                               | The transaction is aborted, nothing is saved, and the Auth.js error page is shown.                |
-| OAuth: the user cancels the consent screen                          | Auth.js sends them back with an error, and `SocialAuthForm` shows a toast.                        |
-| Sign-up: invalid input                                              | Messages under the fields (checked in the browser, then again on the server).                     |
-| Sign-up: email or username taken                                    | "An account with this email already exists." / "This username is already taken." under the field. |
-| Sign-up: two sign-ups race                                          | 409 "Duplicate value for …" toast.                                                                |
-| Sign-up: saved, but the sign-in afterwards failed                   | Toast: "Your account was created, but we couldn't sign you in. Please sign in."                   |
-| Sign-up: server unreachable                                         | Toast: "Something went wrong. Please check your connection and try again."                        |
-| Sign-in: invalid input                                              | Messages under the fields (browser, then server).                                                 |
-| Sign-in: unknown email, wrong password, or GitHub/Google-only email | Toast "Sign-in failed: Invalid email or password." (401, the same for every cause).               |
-| Sign-in: database or other server error                             | Toast with a 500 error. The real error is logged on the server.                                   |
+### File map
+
+| File                                                  | What it does                                                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth.ts`                                             | Auth.js config: GitHub, Google and Credentials providers; `signIn`, `jwt`, `session` callbacks. Exports `handlers`, `auth`, `signIn`, `signOut`. |
+| `app/api/auth/[...nextauth]/route.ts`                 | Mounts Auth.js at `/api/auth/*`.                                                                                                                 |
+| `proxy.ts`                                            | Next 16 proxy (formerly middleware). Runs `auth` on page requests; skips `/api`, `_next`, images and icons.                                      |
+| `lib/auth/sign-in-with-oauth.ts`                      | Server-only. Find, link or create the User and Account behind an OAuth login.                                                                    |
+| `lib/auth/verify-credentials.ts`                      | Server-only. Checks an email/password login; returns the user or `null`.                                                                         |
+| `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                 |
+| `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                        |
+| `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                   |
+| `lib/handlers/action.ts`                              | `action()`: validates input, checks the session with `authorize: true`, connects to the DB. Throws on problems.                                  |
+| `constants/accounts.ts`                               | `OAUTH_PROVIDERS` and `ACCOUNT_PROVIDERS`. Free of Mongoose, so client code can import it.                                                       |
+| `database/user.model.ts`, `database/account.model.ts` | The two collections (see [section 1](#1-identity-and-data)).                                                                                     |
+| `components/forms/AuthForm.tsx`                       | Sign-in/sign-up form: runs the action, shows field errors and toasts, redirects to `/`.                                                          |
+| `components/forms/SocialAuthForm.tsx`                 | GitHub/Google buttons; call `signIn(provider)` from `next-auth/react`.                                                                           |
+| `components/UserAvatar.tsx`                           | Round avatar linking to `/profile/<id>`, with an initials fallback.                                                                              |
+| `components/navigation/*`                             | Navbar avatar, and Log In / Sign Up / Log Out in the sidebar and mobile menu.                                                                    |
+| `app/layout.tsx`                                      | Passes the server session into `<SessionProvider>`.                                                                                              |
+
+### Public buttons vs back-office helpers
+
+| Kind                                      | Where                           | Who can call it                             | Rule                                                   |
+| ----------------------------------------- | ------------------------------- | ------------------------------------------- | ------------------------------------------------------ |
+| **Rulebook**                              | `auth.ts`                       | Auth.js                                     | Decides who may sign in and what goes in the token.    |
+| **Public buttons** (`"use server"`)       | `lib/actions/*.action.ts`       | **Anyone**: every export is a POST endpoint | Validate everything (`action()` + Zod); trust nothing. |
+| **Back-office helpers** (`"server-only"`) | `lib/auth/*`, `lib/password.ts` | Only our server code                        | Can trust their caller. Never exposed as endpoints.    |
+
+### Environment variables
+
+Set in `.env.local` (see `.env.example`): `AUTH_SECRET`, `AUTH_TRUST_HOST`,
+`AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `MONGODB_URI`.
+
+### Keeping this doc in sync
+
+- This doc describes the **current** code, not its history (Git keeps that).
+  When auth code changes, update the sections that own it instead of adding a
+  new section.
+- Each rule has one home. Other sections give a one-line summary and link to
+  it.
+- After a change, check: the entry point, how the user id is found, what is
+  written to the DB, what goes in the cookie, failure cases, what the user
+  sees, and the limitations table. Re-check any diagram whose code changed.
+- If one section grows past about 250 lines, consider moving it to its own
+  file under `docs/auth/`.
 
 ---
 
-## 11. Glossary
+## 7. Glossary
 
 Plain-language meanings of the words used in this doc, in alphabetical order.
 
-| Term                                   | Meaning here                                                                                                                                                                                                |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AccessDenied**                       | The Auth.js error page shown when our `signIn` callback returns `false` (e.g. an OAuth login without an email).                                                                                             |
-| **Account**                            | One way a user logs in: a "key" (see 0.1). Stored in the `accounts` collection with `provider` + `providerAccountId`. One user can have several.                                                            |
-| **`action()`**                         | Our helper at the start of every server action. It checks the session (`authorize: true`), validates the input with a Zod schema, and connects to the DB. It throws on any problem.                         |
-| **`auth()`**                           | Reads and decrypts the session cookie and returns the session or `null`. Used in server components, server actions and the proxy. It doesn't touch the DB.                                                  |
-| **Auth.js / NextAuth**                 | The auth library (`next-auth@5`). It runs the OAuth dance, the Credentials check, and creates and reads the session cookie. Configured in `auth.ts`.                                                        |
-| **`authorize()`**                      | The Credentials provider's function. It gets the email and password and returns our user, or `null` to reject. Ours calls `verifyCredentials`.                                                              |
-| **bcrypt**                             | A deliberately slow password-hashing algorithm. Slow means guessing millions of passwords is expensive. It only uses the first 72 bytes of a password.                                                      |
-| **Callback (Auth.js)**                 | A hook Auth.js calls at a fixed moment. `signIn`: may this login go ahead? `jwt`: what goes in the token? `session`: what does `auth()` return?                                                             |
-| **Cookie**                             | A small value the browser stores and sends back on every request. Our session lives in one, encrypted and `httpOnly`, so page JavaScript can't read it.                                                     |
-| **Cost factor**                        | How slow bcrypt is. Ours is 12: each +1 doubles the work, and 12 is about 250–400 ms per check.                                                                                                             |
-| **CredentialsSignin**                  | The error Auth.js throws when `authorize()` returns `null`. Our sign-in action turns it into 401 "Invalid email or password."                                                                               |
-| **Credentials provider**               | Email/password login handled by our own code (`authorize()`) instead of GitHub or Google. Its accounts have `provider: "credentials"`.                                                                      |
-| **CSRF**                               | A trick that makes your browser send a request to our site without you meaning to. Auth.js endpoints and Next server actions have built-in protection against it.                                           |
-| **Dummy hash**                         | A bcrypt hash of a random password nobody knows. We check against it when an email doesn't exist, so the failure takes as long as a real check.                                                             |
-| **Duplicate key error (E11000)**       | MongoDB's error when a write breaks a unique index, e.g. two sign-ups with the same email at the same moment. `handleError` turns it into a 409.                                                            |
-| **Dynamic import**                     | `await import("...")`: loads a module only when that line runs. We use it so Mongoose is loaded only while signing in, not on every proxy request.                                                          |
-| **Hash**                               | A one-way scramble of a password. You can check a password against it, but you can't turn it back into the password. bcrypt also adds a random **salt**, so the same password hashes differently each time. |
-| **JWT**                                | JSON Web Token. A small signed (here also encrypted) bundle of data. Ours holds the user id, name, email and picture, and lives in the session cookie.                                                      |
-| **Linking**                            | Attaching a new GitHub/Google Account to an existing User with the same email, instead of creating a second user.                                                                                           |
-| **OAuth**                              | "Sign in with GitHub/Google": the provider confirms who you are and sends us your profile. We never see your GitHub/Google password.                                                                        |
-| **Provider**                           | Where a login comes from: `github`, `google` or `credentials`.                                                                                                                                              |
-| **`providerAccountId`**                | The user's id **at the provider** (e.g. a GitHub user number). For `credentials` it's the email. Together with `provider` it's unique.                                                                      |
-| **Proxy (`proxy.ts`)**                 | Next 16's name for middleware. It runs before each page request (not `/api`). Ours only attaches the session and blocks nothing yet.                                                                        |
-| **Rate limiting**                      | Capping how many attempts someone can make (e.g. 5 logins per minute). Not done yet. It stops password guessing.                                                                                            |
-| **Route handler**                      | A file like `app/api/.../route.ts` that answers HTTP requests. Ours under `/api/users` and `/api/accounts` are public right now.                                                                            |
-| **`select: false`**                    | A Mongoose field option: the field (`password`) is left out of queries unless you ask with `.select("+password")`. Stops the hash from leaking by accident.                                                 |
-| **Server action**                      | An async function in a `"use server"` file that the browser can call like a function. Under the hood it's a public POST endpoint, so always validate.                                                       |
-| **`server-only`**                      | An import that makes the build fail if the file ever ends up in browser code. Used for private helpers like `verifyCredentials`.                                                                            |
-| **Session**                            | "Who is signed in right now." Here it's the decrypted JWT cookie: `{ user: { id, name, email, image }, expires }`. There's no session table in the DB.                                                      |
-| **`SessionProvider` / `useSession()`** | Make the session available to client components. The layout passes in the server's session so there's no extra fetch.                                                                                       |
-| **`signIn()` / `signOut()`**           | Start or end a session. The server versions (from `@/auth`) are used in server actions; the client version (`next-auth/react`) is used by the GitHub/Google buttons.                                        |
-| **Slug**                               | A URL-safe version of text: `"John Doe"` → `"john-doe"`. Used to make usernames from OAuth names.                                                                                                           |
-| **`token.sub`**                        | "Subject": the user id stored in the JWT. We make sure it's **our** MongoDB user id, never the GitHub/Google id.                                                                                            |
-| **Transaction**                        | A group of DB writes that are saved all together or not at all. Used so a User is never saved without its Account.                                                                                          |
-| **Unique index**                       | A DB rule that no two documents can share a value (e.g. `email`, `username`, or `provider` + `providerAccountId`). The final guard against duplicates.                                                      |
-| **User**                               | The person: profile data (name, username, email, image...). Stored in the `users` collection.                                                                                                               |
-| **User enumeration**                   | Finding out which emails have accounts from different error messages or response times. Our sign-in prevents it (see 0.4).                                                                                  |
-| **Zod schema**                         | A description of valid input (e.g. `SignInSchema`). `safeParse` checks data against it and also cleans it (trims and lowercases emails).                                                                    |
+| Term                                   | Meaning here                                                                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AccessDenied**                       | The Auth.js error page shown when our `signIn` callback returns `false`.                                                                                        |
+| **Account**                            | One way a user logs in: a key on their keyring. Identified by `provider` + `providerAccountId`. See [section 1](#1-identity-and-data).                          |
+| **`action()`**                         | Our helper at the start of every server action: checks the session, validates input with Zod, connects to the DB. Throws on any problem.                        |
+| **`auth()`**                           | Reads and decrypts the session cookie; returns the session or `null`. Doesn't touch the DB.                                                                     |
+| **Auth.js / NextAuth**                 | The auth library (`next-auth@5`). Runs OAuth and the Credentials check, and creates and reads the session cookie. Configured in `auth.ts`.                      |
+| **`authorize()`**                      | The Credentials provider's function: returns our user, or `null` to reject.                                                                                     |
+| **bcrypt**                             | A deliberately slow password-hashing algorithm, so guessing many passwords is expensive. Uses only the first 72 bytes of a password.                            |
+| **Callback (Auth.js)**                 | A hook Auth.js calls at a fixed moment. `signIn`: may this login go ahead? `jwt`: what goes in the token? `session`: what does `auth()` return?                 |
+| **Cookie**                             | A small value the browser stores and sends back on every request. Ours is encrypted and `httpOnly`, so page JavaScript can't read it.                           |
+| **Cost factor**                        | How slow bcrypt is. Each +1 doubles the work. Ours is 12.                                                                                                       |
+| **CredentialsSignin**                  | The error Auth.js throws when `authorize()` returns `null`.                                                                                                     |
+| **Credentials provider**               | Email/password login checked by our own code instead of GitHub or Google. Its accounts have `provider: "credentials"`.                                          |
+| **CSRF**                               | A trick that makes your browser send a request you didn't mean to. Auth.js endpoints and server actions have built-in protection.                               |
+| **Dummy hash**                         | A bcrypt hash of a random password nobody knows, checked when an email doesn't exist so the failure isn't noticeably faster.                                    |
+| **Duplicate key error (E11000)**       | MongoDB's error when a write breaks a unique index.                                                                                                             |
+| **Dynamic import**                     | `await import("...")`: loads a module only when that line runs.                                                                                                 |
+| **Hash**                               | A one-way scramble of a password: you can check a password against it but can't reverse it. bcrypt adds a random **salt**, so equal passwords hash differently. |
+| **JWT**                                | JSON Web Token: a small signed (here also encrypted) bundle of data. Ours holds the user id, name, email and picture.                                           |
+| **Linking**                            | Attaching a new GitHub/Google Account to an existing User with the same email.                                                                                  |
+| **OAuth**                              | "Sign in with GitHub/Google": the provider confirms who you are and sends your profile. We never see that password.                                             |
+| **Provider**                           | Where a login comes from: `github`, `google` or `credentials`.                                                                                                  |
+| **`providerAccountId`**                | The user's id at the provider. For `credentials` it's the email.                                                                                                |
+| **Proxy (`proxy.ts`)**                 | Next 16's name for middleware. Runs before each page request (not `/api`).                                                                                      |
+| **Rate limiting**                      | Capping how many attempts someone can make in a period of time.                                                                                                 |
+| **Route handler**                      | A file like `app/api/.../route.ts` that answers HTTP requests.                                                                                                  |
+| **`select: false`**                    | A Mongoose field option: the field is left out of queries unless asked for with `.select("+field")`.                                                            |
+| **Server action**                      | An async function in a `"use server"` file that the browser can call. Underneath it's a public POST endpoint.                                                   |
+| **`server-only`**                      | An import that makes the build fail if the file ends up in browser code.                                                                                        |
+| **Session**                            | "Who is signed in right now": `{ user: { id, name, email, image }, expires }`, from the decrypted cookie.                                                       |
+| **`SessionProvider` / `useSession()`** | Make the session available to client components.                                                                                                                |
+| **`signIn()` / `signOut()`**           | Start or end a session. Server versions come from `@/auth`; the client version from `next-auth/react`.                                                          |
+| **Slug**                               | A URL-safe version of text: `"John Doe"` → `"john-doe"`.                                                                                                        |
+| **`token.sub`**                        | "Subject": the user id stored in the JWT. Always our MongoDB user id.                                                                                           |
+| **Transaction**                        | A group of DB writes that are saved all together or not at all.                                                                                                 |
+| **Unique index**                       | A DB rule that no two documents can share a value.                                                                                                              |
+| **User**                               | The person: profile data. Stored in the `users` collection.                                                                                                     |
+| **User enumeration**                   | Learning which emails have accounts from different error messages or response times.                                                                            |
+| **Zod schema**                         | A description of valid input. `safeParse` checks data against it and can also clean it (trim, lowercase).                                                       |
