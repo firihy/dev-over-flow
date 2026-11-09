@@ -1,0 +1,89 @@
+"use server";
+
+// Server actions: every export here can be called from the browser with a
+// POST, so each one validates its own input.
+
+import type { z } from "zod";
+
+import Question, { type IQuestionDoc } from "@/database/question.model";
+import TagQuestion from "@/database/tag-question.model";
+import Tag from "@/database/tag.model";
+import action from "@/lib/handlers/action";
+import handleError from "@/lib/handlers/error";
+import { UnauthorizedError } from "@/lib/http-errors";
+import dbConnect from "@/lib/mongoose";
+import { AskQuestionSchema } from "@/lib/validations";
+import type { ActionResponse, Serialized } from "@/types";
+
+export type CreateQuestionInput = z.input<typeof AskQuestionSchema>;
+
+// Same collation as the Tag name index: the lookup ignores case and uses
+// the index (see tag.model.ts)
+const TAG_NAME_COLLATION = { locale: "en", strength: 2 };
+
+// Posts a question for the signed-in user. Its tags are created the first
+// time they're used, and every tag's question count goes up by one.
+export async function createQuestion(
+  input: CreateQuestionInput,
+): Promise<ActionResponse<Serialized<IQuestionDoc>>> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: AskQuestionSchema,
+      authorize: true,
+    });
+    const { title, content, tags } = params;
+
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    const { connection } = await dbConnect();
+
+    // The tags, their counts, the question and its links are saved
+    // together or not at all. connection.transaction() also retries on
+    // temporary errors, so everything inside must be safe to run again.
+    const question = await connection.transaction(async (dbSession) => {
+      // Tags first: the question needs their ids (1 to 3 are required).
+      // An exact match, not a regex built from the input: "c++" or ".*"
+      // would be read as a pattern.
+      const tagIds = [];
+      for (const name of tags) {
+        // upsert: creates { name, questions: 1 } when the tag is new
+        const tag = await Tag.findOneAndUpdate(
+          { name },
+          { $inc: { questions: 1 } },
+          {
+            upsert: true,
+            returnDocument: "after",
+            collation: TAG_NAME_COLLATION,
+            session: dbSession,
+          },
+        );
+        tagIds.push(tag._id);
+      }
+
+      const [created] = await Question.create(
+        [{ title, content, tags: tagIds, author: userId }],
+        { session: dbSession },
+      );
+
+      await TagQuestion.insertMany(
+        tagIds.map((tag) => ({ tag, question: created._id })),
+        { session: dbSession },
+      );
+
+      return created;
+    });
+
+    return {
+      success: true,
+      status: 201,
+      // A plain object for the browser: ObjectIds and Dates become strings
+      data: JSON.parse(
+        JSON.stringify(question.toObject()),
+      ) as Serialized<IQuestionDoc>,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
