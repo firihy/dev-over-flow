@@ -17,30 +17,34 @@ passwords.
 
 ## 1. The pieces
 
-| File                                    | What it does                                                                                                                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth.ts`                               | Auth.js config: the GitHub, Google and Credentials providers, and the `signIn`, `jwt` and `session` callbacks. Exports `handlers`, `auth`, `signIn` and `signOut`.                       |
-| `app/api/auth/[...nextauth]/route.ts`   | Mounts Auth.js at `/api/auth/*` (sign-in, callback, session, sign-out).                                                                                                                  |
-| `proxy.ts`                              | Next 16 proxy (formerly middleware). It runs `auth` on every page request so the session is available. It skips `/api`, `_next`, images and icons.                                       |
-| `lib/auth/sign-in-with-oauth.ts`        | Server-only. Finds or creates the User and Account behind a GitHub or Google login, in a transaction.                                                                                    |
-| `lib/auth/verify-credentials.ts`        | Server-only. `verifyCredentials` checks an email/password login and returns the user or `null`. It takes the same time whether or not the email exists. Only `authorize()` calls it.     |
-| `lib/actions/auth.action.ts`            | Server actions. `signUpWithCredentials` creates the User and a `credentials` Account in a transaction, then signs the user in. `signInWithCredentials` signs in with email and password. |
-| `lib/password.ts`                       | `hashPassword` (bcrypt, cost 12) and `verifyPassword`.                                                                                                                                   |
-| `lib/validations.ts`                    | `SignInSchema`, `SignUpSchema` and `SignInWithOAuthSchema`. Emails are trimmed and lowercased before they are checked.                                                                   |
-| `constants/accounts.ts`                 | `OAUTH_PROVIDERS` (`github`, `google`) and `ACCOUNT_PROVIDERS` (adds `credentials`). It is free of Mongoose, so client code can import it.                                               |
-| `database/user.model.ts`                | The person: profile data, plus a unique `username` and `email`.                                                                                                                          |
-| `database/account.model.ts`             | One login method for a user. Unique on `(provider, providerAccountId)`. `password` is `select: false`.                                                                                   |
-| `lib/handlers/action.ts`                | Server-action helper: validates input, checks the session with `authorize: true`, and connects to the DB. It throws on problems.                                                         |
-| `components/forms/AuthForm.tsx`         | The sign-in/sign-up form. It runs the server action, shows field errors under the inputs, and on success shows a toast and redirects to `/`.                                             |
-| `components/forms/SocialAuthForm.tsx`   | "Log in with GitHub/Google" buttons. They call `signIn(provider)` from `next-auth/react`.                                                                                                |
-| `components/navigation/LeftSidebar.tsx` | Uses `auth()` to show the user, and `signOut()` for logout.                                                                                                                              |
-| `app/layout.tsx`                        | Passes the server session into `<SessionProvider>` for client components.                                                                                                                |
+| File                                                | What it does                                                                                                                                                                                                                             |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.ts`                                           | Auth.js config: the GitHub, Google and Credentials providers, and the `signIn`, `jwt` and `session` callbacks. Exports `handlers`, `auth`, `signIn` and `signOut`.                                                                       |
+| `app/api/auth/[...nextauth]/route.ts`               | Mounts Auth.js at `/api/auth/*` (sign-in, callback, session, sign-out).                                                                                                                                                                  |
+| `proxy.ts`                                          | Next 16 proxy (formerly middleware). It runs `auth` on every page request so the session is available. It skips `/api`, `_next`, images and icons.                                                                                       |
+| `lib/auth/sign-in-with-oauth.ts`                    | Server-only. Finds or creates the User and Account behind a GitHub or Google login, in a transaction.                                                                                                                                    |
+| `lib/auth/verify-credentials.ts`                    | Server-only. `verifyCredentials` checks an email/password login and returns the user or `null`. It takes the same time whether or not the email exists. Only `authorize()` calls it.                                                     |
+| `lib/actions/auth.action.ts`                        | Server actions. `signUpWithCredentials` creates the User and a `credentials` Account in a transaction, then signs the user in. `signInWithCredentials` signs in with email and password. `signOutUser` signs out and goes to `/sign-in`. |
+| `lib/password.ts`                                   | `hashPassword` (bcrypt, cost 12) and `verifyPassword`.                                                                                                                                                                                   |
+| `lib/validations.ts`                                | `SignInSchema`, `SignUpSchema` and `SignInWithOAuthSchema`. Emails are trimmed and lowercased before they are checked.                                                                                                                   |
+| `constants/accounts.ts`                             | `OAUTH_PROVIDERS` (`github`, `google`) and `ACCOUNT_PROVIDERS` (adds `credentials`). It is free of Mongoose, so client code can import it.                                                                                               |
+| `database/user.model.ts`                            | The person: profile data, plus a unique `username` and `email`.                                                                                                                                                                          |
+| `database/account.model.ts`                         | One login method for a user. Unique on `(provider, providerAccountId)`. `password` is `select: false`.                                                                                                                                   |
+| `lib/handlers/action.ts`                            | Server-action helper: validates input, checks the session with `authorize: true`, and connects to the DB. It throws on problems.                                                                                                         |
+| `components/forms/AuthForm.tsx`                     | The sign-in/sign-up form. It runs the server action, shows field errors under the inputs, and on success shows a toast and redirects to `/`.                                                                                             |
+| `components/forms/SocialAuthForm.tsx`               | "Log in with GitHub/Google" buttons. They call `signIn(provider)` from `next-auth/react`.                                                                                                                                                |
+| `components/navigation/LeftSidebar.tsx`             | Uses `auth()` to pick Log Out (a form posting to `signOutUser`) or Log In / Sign Up, and passes the user id to `NavLinks`.                                                                                                               |
+| `components/navigation/navbar/MobileNavigation.tsx` | The same for the phone menu. The Log Out button also closes the menu.                                                                                                                                                                    |
+| `components/navigation/navbar/index.tsx`            | The navbar. Uses `auth()` to show the signed-in user's `UserAvatar`.                                                                                                                                                                     |
+| `components/UserAvatar.tsx`                         | Round avatar linking to `/profile/<id>`. Shows the picture, or the initials when there is none or it fails to load.                                                                                                                      |
+| `app/layout.tsx`                                    | Passes the server session into `<SessionProvider>` for client components.                                                                                                                                                                |
 
 ```mermaid
 flowchart LR
   subgraph Browser
     SAF[SocialAuthForm<br/>signIn provider]
     AF[AuthForm<br/>sign-up / sign-in]
+    LO[Log Out forms<br/>sidebar + mobile menu]
     CC[Client components<br/>useSession]
   end
 
@@ -50,9 +54,9 @@ flowchart LR
     AUTH[auth.ts<br/>providers + callbacks]
     SIO[lib/auth/sign-in-with-oauth.ts]
     SIC[lib/auth/verify-credentials.ts]
-    SUA[lib/actions/auth.action.ts<br/>signUpWithCredentials<br/>signInWithCredentials]
+    SUA[lib/actions/auth.action.ts<br/>signUpWithCredentials<br/>signInWithCredentials<br/>signOutUser]
     ACT[lib/handlers/action.ts]
-    RSC[Server components<br/>auth]
+    RSC[Server components<br/>Navbar, LeftSidebar,<br/>MobileNavigation: auth]
   end
 
   subgraph Providers
@@ -67,6 +71,7 @@ flowchart LR
   RH <--> GO
   RH --> AUTH
   AF -- server action --> SUA
+  LO -- server action --> SUA
   SUA --> ACT
   SUA -- "signIn('credentials')" --> AUTH
   SUA --> DB
@@ -375,27 +380,73 @@ sequenceDiagram
 
 Where it's used:
 
-- **Server components:** `const session = await auth()` (`LeftSidebar`, `MobileNavigation`, `app/layout.tsx`).
+- **Server components:** `const session = await auth()` (`Navbar`, `LeftSidebar`, `MobileNavigation`, `app/layout.tsx`).
 - **Server actions:** `action({ ..., authorize: true })` throws `UnauthorizedError` (401) when signed out.
 - **Client components:** `useSession()`, through the `SessionProvider` set up in `app/layout.tsx`.
-- **Sign-out:** `signOut({ redirectTo: ROUTES.SIGN_IN })` in `LeftSidebar`.
+- **Sign-out:** the `signOutUser` server action (see below).
 
 **Keeping Mongoose out of the proxy:** `proxy.ts` runs `auth.ts` on every
 page request. Both DB helpers are loaded with `await import(...)` only while
 signing in, so ordinary requests never load Mongoose.
 
+### What the signed-in user sees
+
+| Place                         | Signed out      | Signed in                                                    |
+| ----------------------------- | --------------- | ------------------------------------------------------------ |
+| Navbar                        | —               | `UserAvatar`: the picture, or initials ("Zed Avatar" → "ZA") |
+| Left sidebar (tablet/desktop) | Log In, Sign Up | Log Out. "Profile" link in `NavLinks`                        |
+| Mobile menu (phone)           | Log In, Sign Up | Log Out. "Profile" link in `NavLinks`                        |
+
+The avatar's name and picture come from the **session**, not the database.
+They are copied into the JWT at sign-in, so a profile change only shows
+after the next sign-in.
+
+`UserAvatar` uses Radix's `AvatarImage` (a plain `<img>`), not
+`next/image`. Radix only shows the initials fallback when its own image
+fails to load. `referrerPolicy="no-referrer"` is there because Google avatar
+URLs can refuse requests that say which site they came from.
+
+### Signing out
+
+Both Log Out buttons are forms that post to one server action,
+`signOutUser`.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant F as Log Out form<br/>(sidebar or mobile menu)
+  participant SA as signOutUser<br/>(server action)
+  participant AJ as Auth.js signOut
+  participant B as Browser
+
+  U->>F: Click "Log Out"
+  Note over F: Mobile: SheetClose on the button<br/>also closes the menu
+  F->>SA: POST (server action)
+  SA->>AJ: signOut({ redirectTo: "/sign-in" })
+  AJ-->>B: Delete the session cookie
+  AJ-->>B: Redirect to /sign-in
+  B->>B: Server components render signed out<br/>(no avatar, Log In / Sign Up)
+```
+
+Because the session is only a cookie (JWT), signing out just deletes that
+cookie. There is no session row to remove from the database. A copy of the
+token taken before sign-out stays valid until it expires (30 days by
+default).
+
 ---
 
 ## 8. Not done yet
 
-| Gap                                                                                      | Where                       |
-| ---------------------------------------------------------------------------------------- | --------------------------- |
-| No rate limit on login or sign-up attempts, so passwords can be brute-forced.            | `auth.ts`, `auth.action.ts` |
-| bcrypt only uses the first 72 bytes of a password, but the schema allows 100 characters. | `passwordSchema`            |
-| Usernames are case-sensitive: `John` and `john` can both exist.                          | `user.model.ts`             |
-| No email verification for email/password sign-ups.                                       | —                           |
-| No route protection (no `authorized` callback in the proxy).                             | `proxy.ts`                  |
-| The `/api/users` and `/api/accounts` routes don't check auth.                            | `app/api/**`                |
+| Gap                                                                                                                                                                 | Where                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| No rate limit on login or sign-up attempts, so passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts` |
+| bcrypt only uses the first 72 bytes of a password, but the schema allows 100 characters.                                                                            | `passwordSchema`            |
+| The avatar and name in the session don't update after a profile change until the next sign-in. Fix: refresh them in the `jwt` callback with `trigger === "update"`. | `auth.ts`                   |
+| Usernames are case-sensitive: `John` and `john` can both exist.                                                                                                     | `user.model.ts`             |
+| No email verification for email/password sign-ups.                                                                                                                  | —                           |
+| No route protection (no `authorized` callback in the proxy).                                                                                                        | `proxy.ts`                  |
+| The `/api/users` and `/api/accounts` routes don't check auth.                                                                                                       | `app/api/**`                |
 
 ---
 
