@@ -500,6 +500,7 @@ it expires (30 days by default).
 | `lib/auth/sign-in-with-oauth.ts`                      | Server-only. Find, link or create the User and Account behind an OAuth login.                                                                    |
 | `lib/auth/verify-credentials.ts`                      | Server-only. Checks an email/password login; returns the user or `null`.                                                                         |
 | `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                 |
+| `lib/actions/question.action.ts`                      | `createQuestion`: the first action that needs a signed-in user (`authorize: true`). The question's author is `session.user.id`.                  |
 | `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                        |
 | `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                   |
 | `lib/handlers/action.ts`                              | `action()`: validates input, checks the session with `authorize: true`, connects to the DB. Throws on problems.                                  |
