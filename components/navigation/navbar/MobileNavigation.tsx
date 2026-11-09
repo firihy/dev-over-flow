@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,6 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import ROUTES from "@/constants/routes";
+import { signOutUser } from "@/lib/actions/auth.action";
 
 import NavLinks from "./NavLinks";
 
@@ -53,7 +55,21 @@ const MobileNavigation = async () => {
             <NavLinks isMobileNav userId={session?.user?.id} />
           </nav>
 
-          {!session && (
+          {session ? (
+            <form action={signOutUser} className="px-4 pb-6">
+              {/* SheetClose on the button: the click closes the menu and
+                  submits the form */}
+              <SheetClose asChild>
+                <Button
+                  type="submit"
+                  className="small-medium light-border-2 btn-tertiary text-dark400_light900 min-h-10.25 w-full rounded-lg border px-4 py-3 shadow-none"
+                >
+                  <LogOut aria-hidden />
+                  Log Out
+                </Button>
+              </SheetClose>
+            </form>
+          ) : (
             <div className="flex flex-col gap-3 px-4 pb-6">
               <SheetClose asChild>
                 <Button
