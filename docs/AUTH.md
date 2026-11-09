@@ -10,32 +10,31 @@ passwords.
 **Status:**
 
 - GitHub and Google sign-in work end to end, tested with real logins.
-- Email/password sign-up works and signs the new user in.
-- The Credentials provider works, but the sign-in form isn't wired to it
-  yet. See [Not done yet](#8-not-done-yet).
+- Email/password sign-up and sign-in work end to end.
+- What's still missing is listed in [Not done yet](#8-not-done-yet).
 
 ---
 
 ## 1. The pieces
 
-| File                                    | What it does                                                                                                                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth.ts`                               | Auth.js config: the GitHub, Google and Credentials providers, and the `signIn`, `jwt` and `session` callbacks. Exports `handlers`, `auth`, `signIn` and `signOut`. |
-| `app/api/auth/[...nextauth]/route.ts`   | Mounts Auth.js at `/api/auth/*` (sign-in, callback, session, sign-out).                                                                                            |
-| `proxy.ts`                              | Next 16 proxy (formerly middleware). It runs `auth` on every page request so the session is available. It skips `/api`, `_next`, images and icons.                 |
-| `lib/auth/sign-in-with-oauth.ts`        | Server-only. Finds or creates the User and Account behind a GitHub or Google login, in a transaction.                                                              |
-| `lib/auth/sign-in-with-credentials.ts`  | Server-only. Checks an email/password login and returns the user or `null`. It takes the same time whether or not the email exists.                                |
-| `lib/actions/auth.action.ts`            | Server actions. `signUpWithCredentials` creates the User and a `credentials` Account in a transaction, then signs the user in.                                     |
-| `lib/password.ts`                       | `hashPassword` (bcrypt, cost 12) and `verifyPassword`.                                                                                                             |
-| `lib/validations.ts`                    | `SignInSchema`, `SignUpSchema` and `SignInWithOAuthSchema`. Emails are trimmed and lowercased before they are checked.                                             |
-| `constants/accounts.ts`                 | `OAUTH_PROVIDERS` (`github`, `google`) and `ACCOUNT_PROVIDERS` (adds `credentials`). It is free of Mongoose, so client code can import it.                         |
-| `database/user.model.ts`                | The person: profile data, plus a unique `username` and `email`.                                                                                                    |
-| `database/account.model.ts`             | One login method for a user. Unique on `(provider, providerAccountId)`. `password` is `select: false`.                                                             |
-| `lib/handlers/action.ts`                | Server-action helper: validates input, checks the session with `authorize: true`, and connects to the DB. It throws on problems.                                   |
-| `components/forms/AuthForm.tsx`         | The sign-in/sign-up form. It runs the server action, shows field errors under the inputs, and on success shows a toast and redirects to `/`.                       |
-| `components/forms/SocialAuthForm.tsx`   | "Log in with GitHub/Google" buttons. They call `signIn(provider)` from `next-auth/react`.                                                                          |
-| `components/navigation/LeftSidebar.tsx` | Uses `auth()` to show the user, and `signOut()` for logout.                                                                                                        |
-| `app/layout.tsx`                        | Passes the server session into `<SessionProvider>` for client components.                                                                                          |
+| File                                    | What it does                                                                                                                                                                             |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.ts`                               | Auth.js config: the GitHub, Google and Credentials providers, and the `signIn`, `jwt` and `session` callbacks. Exports `handlers`, `auth`, `signIn` and `signOut`.                       |
+| `app/api/auth/[...nextauth]/route.ts`   | Mounts Auth.js at `/api/auth/*` (sign-in, callback, session, sign-out).                                                                                                                  |
+| `proxy.ts`                              | Next 16 proxy (formerly middleware). It runs `auth` on every page request so the session is available. It skips `/api`, `_next`, images and icons.                                       |
+| `lib/auth/sign-in-with-oauth.ts`        | Server-only. Finds or creates the User and Account behind a GitHub or Google login, in a transaction.                                                                                    |
+| `lib/auth/verify-credentials.ts`        | Server-only. `verifyCredentials` checks an email/password login and returns the user or `null`. It takes the same time whether or not the email exists. Only `authorize()` calls it.     |
+| `lib/actions/auth.action.ts`            | Server actions. `signUpWithCredentials` creates the User and a `credentials` Account in a transaction, then signs the user in. `signInWithCredentials` signs in with email and password. |
+| `lib/password.ts`                       | `hashPassword` (bcrypt, cost 12) and `verifyPassword`.                                                                                                                                   |
+| `lib/validations.ts`                    | `SignInSchema`, `SignUpSchema` and `SignInWithOAuthSchema`. Emails are trimmed and lowercased before they are checked.                                                                   |
+| `constants/accounts.ts`                 | `OAUTH_PROVIDERS` (`github`, `google`) and `ACCOUNT_PROVIDERS` (adds `credentials`). It is free of Mongoose, so client code can import it.                                               |
+| `database/user.model.ts`                | The person: profile data, plus a unique `username` and `email`.                                                                                                                          |
+| `database/account.model.ts`             | One login method for a user. Unique on `(provider, providerAccountId)`. `password` is `select: false`.                                                                                   |
+| `lib/handlers/action.ts`                | Server-action helper: validates input, checks the session with `authorize: true`, and connects to the DB. It throws on problems.                                                         |
+| `components/forms/AuthForm.tsx`         | The sign-in/sign-up form. It runs the server action, shows field errors under the inputs, and on success shows a toast and redirects to `/`.                                             |
+| `components/forms/SocialAuthForm.tsx`   | "Log in with GitHub/Google" buttons. They call `signIn(provider)` from `next-auth/react`.                                                                                                |
+| `components/navigation/LeftSidebar.tsx` | Uses `auth()` to show the user, and `signOut()` for logout.                                                                                                                              |
+| `app/layout.tsx`                        | Passes the server session into `<SessionProvider>` for client components.                                                                                                                |
 
 ```mermaid
 flowchart LR
@@ -50,8 +49,8 @@ flowchart LR
     RH["/api/auth/[...nextauth]<br/>handlers"]
     AUTH[auth.ts<br/>providers + callbacks]
     SIO[lib/auth/sign-in-with-oauth.ts]
-    SIC[lib/auth/sign-in-with-credentials.ts]
-    SUA[lib/actions/auth.action.ts<br/>signUpWithCredentials]
+    SIC[lib/auth/verify-credentials.ts]
+    SUA[lib/actions/auth.action.ts<br/>signUpWithCredentials<br/>signInWithCredentials]
     ACT[lib/handlers/action.ts]
     RSC[Server components<br/>auth]
   end
@@ -278,53 +277,73 @@ Details:
 
 ---
 
-## 6. Email/password sign-in (Credentials provider)
+## 6. Email/password sign-in
 
-`authorize()` in `auth.ts` loads `signInWithCredentials` with
-`await import(...)`, the same way the OAuth helper is loaded, to keep
-Mongoose out of the proxy.
+The sign-in page passes the `signInWithCredentials` server action to
+`AuthForm`. The action doesn't check the password itself. It calls
+`signIn("credentials")`, and Auth.js runs the Credentials provider's
+`authorize()`, which calls `verifyCredentials`. So the password is checked
+in exactly one place, for both sign-in and the automatic sign-in after
+sign-up.
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant C as Caller<br/>(sign-up action, later the sign-in form)
+  actor U as User
+  participant F as AuthForm (/sign-in)
+  participant SA as signInWithCredentials<br/>(server action)
   participant NA as Auth.js
   participant AZ as authorize()
-  participant S as signInWithCredentials
+  participant V as verifyCredentials
   participant DB as MongoDB
 
-  C->>NA: signIn("credentials", { email, password })
-  NA->>AZ: authorize(credentials)
-  AZ->>S: await import(...), then signInWithCredentials(credentials)
-  S->>S: SignInSchema.safeParse
+  U->>F: Fill email, password
+  F->>F: Client-side check (SignInSchema)
+  F->>SA: server action call
+  SA->>SA: action(): validate, trim + lowercase email
   alt invalid input
-    S-->>AZ: null
+    SA-->>F: 400 + field errors
   end
-  S->>DB: Account.findOne({ provider: "credentials",<br/>providerAccountId: email }).select("+password")
+  SA->>NA: signIn("credentials", { email, password, redirect: false })
+  NA->>AZ: authorize(credentials)
+  AZ->>V: await import(...), then verifyCredentials(credentials)
+  V->>DB: Account.findOne({ provider: "credentials",<br/>providerAccountId: email }).select("+password")
   alt no account
-    S->>S: bcrypt.compare against a dummy hash<br/>(same time as a real check)
-    S-->>AZ: null
+    V->>V: bcrypt.compare against a dummy hash<br/>(same time as a real check)
+    V-->>AZ: null
   else account found
-    S->>S: verifyPassword(password, account.password)
+    V->>V: verifyPassword(password, account.password)
     alt wrong password
-      S-->>AZ: null
+      V-->>AZ: null
     else right password
-      S->>DB: User.findById(account.userId)
-      S-->>AZ: { id, name, email, image }
+      V->>DB: User.findById(account.userId)
+      V-->>AZ: { id, name, email, image }
     end
   end
   alt null
-    NA-->>C: CredentialsSignin error
+    NA-->>SA: throws CredentialsSignin
+    SA-->>F: 401 "Invalid email or password."
+    F->>U: toast "Sign-in failed"
   else user
-    NA->>NA: signIn callback: credentials, so allow<br/>jwt callback: token.sub = user.id (our id)
-    NA-->>C: session cookie
+    NA->>NA: signIn callback allows credentials<br/>jwt: token.sub = user.id (our id)
+    NA-->>SA: session cookie set
+    SA-->>F: { success: true }
+    F->>U: toast "Signed in successfully", go to "/"
   end
 ```
 
-Why every failure returns the same `null`: a different error for "unknown
-email" and "wrong password" would tell an attacker which emails have an
-account. The dummy-hash comparison does the same for timing. Tested: an
-unknown email and a wrong password both take about 410 ms.
+Why every failure gives the same answer: different errors for "unknown
+email", "no password on this account (GitHub/Google user)" and "wrong
+password" would tell an attacker which emails have an account and how they
+log in.
+
+- **Same message:** `verifyCredentials` returns `null` for all of them, and
+  the action turns Auth.js's `CredentialsSignin` into one 401.
+- **Same timing:** an unknown email is checked against a dummy hash. Tested:
+  an unknown email and a wrong password both take about 410 ms.
+- **Other errors** (for example the database is down) aren't
+  `CredentialsSignin`, so they go through `handleError`. They are logged as
+  real errors and show as a 500.
 
 ---
 
@@ -369,15 +388,14 @@ signing in, so ordinary requests never load Mongoose.
 
 ## 8. Not done yet
 
-| Gap                                                                                                                                                            | Where                         |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| The sign-in form still submits to a stub. It needs a `signInWithCredentials` server action that calls `signIn("credentials")` and handles `CredentialsSignin`. | `app/(auth)/sign-in/page.tsx` |
-| No rate limit on login or sign-up attempts, so passwords can be brute-forced.                                                                                  | `auth.ts`, `auth.action.ts`   |
-| bcrypt only uses the first 72 bytes of a password, but the schema allows 100 characters.                                                                       | `passwordSchema`              |
-| Usernames are case-sensitive: `John` and `john` can both exist.                                                                                                | `user.model.ts`               |
-| No email verification for email/password sign-ups.                                                                                                             | —                             |
-| No route protection (no `authorized` callback in the proxy).                                                                                                   | `proxy.ts`                    |
-| The `/api/users` and `/api/accounts` routes don't check auth.                                                                                                  | `app/api/**`                  |
+| Gap                                                                                      | Where                       |
+| ---------------------------------------------------------------------------------------- | --------------------------- |
+| No rate limit on login or sign-up attempts, so passwords can be brute-forced.            | `auth.ts`, `auth.action.ts` |
+| bcrypt only uses the first 72 bytes of a password, but the schema allows 100 characters. | `passwordSchema`            |
+| Usernames are case-sensitive: `John` and `john` can both exist.                          | `user.model.ts`             |
+| No email verification for email/password sign-ups.                                       | —                           |
+| No route protection (no `authorized` callback in the proxy).                             | `proxy.ts`                  |
+| The `/api/users` and `/api/accounts` routes don't check auth.                            | `app/api/**`                |
 
 ---
 
@@ -410,15 +428,17 @@ signing in, so ordinary requests never load Mongoose.
 
 ## 10. Error cases
 
-| Situation                                                    | What the user sees                                                                                |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| OAuth: unknown provider, or no email                         | `signIn` returns `false`, which shows the Auth.js **AccessDenied** page.                          |
-| OAuth: invalid data from the provider (e.g. a bad image URL) | `ValidationError` is thrown in `jwt`, and Auth.js shows its error page.                           |
-| OAuth: a DB error or no free username                        | The transaction is aborted, nothing is saved, and the Auth.js error page is shown.                |
-| OAuth: the user cancels the consent screen                   | Auth.js sends them back with an error, and `SocialAuthForm` shows a toast.                        |
-| Sign-up: invalid input                                       | Messages under the fields (checked in the browser, then again on the server).                     |
-| Sign-up: email or username taken                             | "An account with this email already exists." / "This username is already taken." under the field. |
-| Sign-up: two sign-ups race                                   | 409 "Duplicate value for …" toast.                                                                |
-| Sign-up: saved, but the sign-in afterwards failed            | Toast: "Your account was created, but we couldn't sign you in. Please sign in."                   |
-| Sign-up: server unreachable                                  | Toast: "Something went wrong. Please check your connection and try again."                        |
-| Credentials: wrong email or password                         | Auth.js `CredentialsSignin` (the same for every cause).                                           |
+| Situation                                                           | What the user sees                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| OAuth: unknown provider, or no email                                | `signIn` returns `false`, which shows the Auth.js **AccessDenied** page.                          |
+| OAuth: invalid data from the provider (e.g. a bad image URL)        | `ValidationError` is thrown in `jwt`, and Auth.js shows its error page.                           |
+| OAuth: a DB error or no free username                               | The transaction is aborted, nothing is saved, and the Auth.js error page is shown.                |
+| OAuth: the user cancels the consent screen                          | Auth.js sends them back with an error, and `SocialAuthForm` shows a toast.                        |
+| Sign-up: invalid input                                              | Messages under the fields (checked in the browser, then again on the server).                     |
+| Sign-up: email or username taken                                    | "An account with this email already exists." / "This username is already taken." under the field. |
+| Sign-up: two sign-ups race                                          | 409 "Duplicate value for …" toast.                                                                |
+| Sign-up: saved, but the sign-in afterwards failed                   | Toast: "Your account was created, but we couldn't sign you in. Please sign in."                   |
+| Sign-up: server unreachable                                         | Toast: "Something went wrong. Please check your connection and try again."                        |
+| Sign-in: invalid input                                              | Messages under the fields (browser, then server).                                                 |
+| Sign-in: unknown email, wrong password, or GitHub/Google-only email | Toast "Sign-in failed: Invalid email or password." (401, the same for every cause).               |
+| Sign-in: database or other server error                             | Toast with a 500 error. The real error is logged on the server.                                   |
