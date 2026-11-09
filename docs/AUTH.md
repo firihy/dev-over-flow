@@ -436,6 +436,13 @@ decrypts the cookie. `proxy.ts` runs `auth.ts` on every page request, so both
 database helpers are loaded with `await import(...)` only while signing in.
 Ordinary requests never load Mongoose.
 
+### Signed-in pages
+
+`/ask-question` is the only page that needs a session. The page itself calls
+`auth()` and, when there's none, `redirect("/sign-in")` (the proxy doesn't
+block anything). The page check is for the user: `createQuestion` checks the
+session again, because a server action can be called without the page.
+
 ### Avatar and navigation
 
 | Place                         | Signed out      | Signed in                                                    |
@@ -475,16 +482,16 @@ it expires (30 days by default).
 
 ## 5. Current limitations
 
-| Limitation                                                                                      | Consequence                                                                                                          | Code                        |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| No rate limit on sign-in or sign-up attempts.                                                   | Passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts` |
-| OAuth linking trusts the provider's email; GitHub's primary email may be unverified.            | Someone with an unverified GitHub email matching yours could be linked to your user. Fix: only link verified emails. | `sign-in-with-oauth.ts`     |
-| No email verification for email/password sign-ups.                                              | Anyone can register any email address.                                                                               | —                           |
-| bcrypt only uses the first 72 bytes, but the schema allows 100 characters.                      | Long passwords that share the first 72 bytes match each other.                                                       | `passwordSchema`            |
-| Session name/avatar aren't refreshed after a profile change.                                    | Stale until the next sign-in. Fix: refresh in `jwt` with `trigger === "update"`.                                     | `auth.ts`                   |
-| Usernames are case-sensitive.                                                                   | `John` and `john` can both exist.                                                                                    | `user.model.ts`             |
-| No route protection (no `authorized` callback; the proxy only attaches the session).            | Every page is reachable signed out.                                                                                  | `proxy.ts`                  |
-| `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`. | Those routes are public.                                                                                             | `app/api/**`                |
+| Limitation                                                                                                                            | Consequence                                                                                                          | Code                                |
+| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| No rate limit on sign-in or sign-up attempts.                                                                                         | Passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts`         |
+| OAuth linking trusts the provider's email; GitHub's primary email may be unverified.                                                  | Someone with an unverified GitHub email matching yours could be linked to your user. Fix: only link verified emails. | `sign-in-with-oauth.ts`             |
+| No email verification for email/password sign-ups.                                                                                    | Anyone can register any email address.                                                                               | —                                   |
+| bcrypt only uses the first 72 bytes, but the schema allows 100 characters.                                                            | Long passwords that share the first 72 bytes match each other.                                                       | `passwordSchema`                    |
+| Session name/avatar aren't refreshed after a profile change.                                                                          | Stale until the next sign-in. Fix: refresh in `jwt` with `trigger === "update"`.                                     | `auth.ts`                           |
+| Usernames are case-sensitive.                                                                                                         | `John` and `john` can both exist.                                                                                    | `user.model.ts`                     |
+| No route protection in the proxy (no `authorized` callback). Only `/ask-question` checks `auth()` itself and redirects to `/sign-in`. | Every other page is reachable signed out.                                                                            | `proxy.ts`, `ask-question/page.tsx` |
+| `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`.                                       | Those routes are public.                                                                                             | `app/api/**`                        |
 
 ---
 
@@ -510,6 +517,7 @@ it expires (30 days by default).
 | `components/forms/SocialAuthForm.tsx`                 | GitHub/Google buttons; call `signIn(provider)` from `next-auth/react`.                                                                           |
 | `components/UserAvatar.tsx`                           | Round avatar linking to `/profile/<id>`, with an initials fallback.                                                                              |
 | `components/navigation/*`                             | Navbar avatar, and Log In / Sign Up / Log Out in the sidebar and mobile menu.                                                                    |
+| `app/(root)/ask-question/page.tsx`                    | Redirects signed-out users to `/sign-in`.                                                                                                        |
 | `app/layout.tsx`                                      | Passes the server session into `<SessionProvider>`.                                                                                              |
 
 ### Public buttons vs back-office helpers
