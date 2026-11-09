@@ -2,9 +2,10 @@ import { LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { auth, signOut } from "@/auth";
+import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import ROUTES from "@/constants/routes";
+import { signOutUser } from "@/lib/actions/auth.action";
 
 import NavLinks from "./navbar/NavLinks";
 
@@ -18,12 +19,7 @@ const LeftSidebar = async () => {
       </nav>
 
       {session ? (
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: ROUTES.SIGN_IN });
-          }}
-        >
+        <form action={signOutUser}>
           <Button
             type="submit"
             className="small-medium light-border-2 btn-tertiary text-dark400_light900 min-h-10.25 w-full rounded-lg border px-4 py-3 shadow-none"

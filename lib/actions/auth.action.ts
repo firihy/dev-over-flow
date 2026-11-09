@@ -6,7 +6,8 @@
 import { CredentialsSignin } from "next-auth";
 import type { z } from "zod";
 
-import { signIn } from "@/auth";
+import { signIn, signOut } from "@/auth";
+import ROUTES from "@/constants/routes";
 import Account from "@/database/account.model";
 import User from "@/database/user.model";
 import action from "@/lib/handlers/action";
@@ -124,4 +125,11 @@ export async function signInWithCredentials(
     }
     return handleError(error);
   }
+}
+
+// Clears the session cookie and goes to the sign-in page. Used by the
+// Log Out forms (sidebar and mobile menu). signOut ends with a redirect,
+// so nothing after it runs.
+export async function signOutUser(): Promise<void> {
+  await signOut({ redirectTo: ROUTES.SIGN_IN });
 }
