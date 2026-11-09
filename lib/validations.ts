@@ -78,7 +78,14 @@ export const AskQuestionSchema = z.object({
         .max(30, { message: "Tag cannot exceed 30 characters." }),
     )
     .min(1, { message: "At least one tag is required." })
-    .max(3, { message: "Cannot add more than 3 tags." }),
+    .max(3, { message: "Cannot add more than 3 tags." })
+    // "React" and "react" are the same tag (the Tag index ignores case), so
+    // the same tag twice would count the question twice
+    .refine(
+      (tags) =>
+        new Set(tags.map((tag) => tag.toLowerCase())).size === tags.length,
+      { message: "Tag already added." },
+    ),
 });
 
 // Only http(s): z.url() alone also accepts "javascript:alert(1)",

@@ -29,7 +29,8 @@ const Editor = dynamic(() => import("@/components/editor"), {
 
 type QuestionFormValues = z.infer<typeof AskQuestionSchema>;
 
-// Reuse the schema's rules (max 3 tags, max length) so they live in one place
+// Reuse the schema's rules (max 3 tags, max length, no duplicates) so they
+// live in one place
 const TagsSchema = AskQuestionSchema.shape.tags;
 
 const INPUT_CLASSES =
@@ -55,12 +56,6 @@ const QuestionForm = () => {
   const addTag = (tags: string[], onChange: (tags: string[]) => void) => {
     const tag = tagInput.trim();
     if (!tag) return;
-
-    const isDuplicate = tags.some((t) => t.toLowerCase() === tag.toLowerCase());
-    if (isDuplicate) {
-      form.setError("tags", { message: "Tag already added." });
-      return;
-    }
 
     const nextTags = [...tags, tag];
     const result = TagsSchema.safeParse(nextTags);
