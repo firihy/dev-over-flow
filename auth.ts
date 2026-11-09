@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 
@@ -8,11 +9,30 @@ const isOAuthProvider = (provider: string): provider is OAuthProvider =>
   (OAUTH_PROVIDERS as readonly string[]).includes(provider);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [GitHub, Google],
+  providers: [
+    GitHub,
+    Google,
+    // Email/password. authorize() returns our user, or null for a wrong
+    // login (Auth.js then reports a CredentialsSignin error). The returned
+    // `id` becomes token.sub, so the token already carries our user id.
+    Credentials({
+      credentials: { email: {}, password: {} },
+      async authorize(credentials) {
+        // Loaded only while signing in, so the proxy doesn't load
+        // Mongoose (see the jwt callback)
+        const { signInWithCredentials } =
+          await import("@/lib/auth/sign-in-with-credentials");
+        return signInWithCredentials(credentials);
+      },
+    }),
+  ],
   callbacks: {
     // Runs first on every sign-in: false shows the "Access denied" page
     signIn({ user, account }) {
-      if (!account || !isOAuthProvider(account.provider)) return false;
+      if (!account) return false;
+      // authorize() already checked the email and password
+      if (account.provider === "credentials") return true;
+      if (!isOAuthProvider(account.provider)) return false;
       // We find and create users by email, so it's required
       return Boolean(user.email);
     },
