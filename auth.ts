@@ -20,9 +20,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         // Loaded only while signing in, so the proxy doesn't load
         // Mongoose (see the jwt callback)
-        const { signInWithCredentials } =
-          await import("@/lib/auth/sign-in-with-credentials");
-        return signInWithCredentials(credentials);
+        const { verifyCredentials } =
+          await import("@/lib/auth/verify-credentials");
+        return verifyCredentials(credentials);
       },
     }),
   ],

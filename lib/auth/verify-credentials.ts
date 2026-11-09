@@ -28,7 +28,7 @@ const getDummyHash = () =>
 // Returns the user, or null for anything wrong (bad input, unknown email,
 // wrong password). One answer for every failure, so the response doesn't
 // reveal which part was wrong.
-export async function signInWithCredentials(
+export async function verifyCredentials(
   input: unknown,
 ): Promise<CredentialsUser | null> {
   const result = SignInSchema.safeParse(input);
