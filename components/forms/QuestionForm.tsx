@@ -21,8 +21,13 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import ROUTES from "@/constants/routes";
-import { createQuestion } from "@/lib/actions/question.action";
+import {
+  createQuestion,
+  editQuestion,
+  type QuestionWithTags,
+} from "@/lib/actions/question.action";
 import { AskQuestionSchema } from "@/lib/validations";
+import type { Serialized } from "@/types";
 
 // The editor touches `window`, so it can only render in the browser
 const Editor = dynamic(() => import("@/components/editor"), {
@@ -52,7 +57,13 @@ const FIELD_NAMES = ["title", "content", "tags"] as const;
 const isFieldName = (name: string): name is (typeof FIELD_NAMES)[number] =>
   (FIELD_NAMES as readonly string[]).includes(name);
 
-const QuestionForm = () => {
+interface QuestionFormProps {
+  // Given: edit this question. Missing: ask a new one.
+  question?: Serialized<QuestionWithTags>;
+}
+
+const QuestionForm = ({ question }: QuestionFormProps) => {
+  const isEdit = Boolean(question);
   const router = useRouter();
   const editorRef = useRef<MDXEditorMethods>(null);
   // True while the question's page loads after a successful submit
@@ -60,7 +71,11 @@ const QuestionForm = () => {
 
   const form = useForm<QuestionFormValues>({
     resolver: standardSchemaResolver(AskQuestionSchema),
-    defaultValues: { title: "", content: "", tags: [] },
+    defaultValues: {
+      title: question?.title ?? "",
+      content: question?.content ?? "",
+      tags: question?.tags.map((tag) => tag.name) ?? [],
+    },
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -94,12 +109,12 @@ const QuestionForm = () => {
     addTag(tags, onChange);
   };
 
-  const handleCreateQuestion: SubmitHandler<QuestionFormValues> = async (
-    data,
-  ) => {
+  const handleSubmit: SubmitHandler<QuestionFormValues> = async (data) => {
     let result;
     try {
-      result = await createQuestion(data);
+      result = question
+        ? await editQuestion({ questionId: question._id, ...data })
+        : await createQuestion(data);
     } catch {
       // The action couldn't be reached (offline, server down...)
       toast.error("Something went wrong", {
@@ -109,7 +124,7 @@ const QuestionForm = () => {
     }
 
     if (result.success) {
-      toast.success("Question posted");
+      toast.success(isEdit ? "Question updated" : "Question posted");
       // In a transition, so the button stays disabled until the new page
       // shows. Otherwise a second click could post the question twice.
       startNavigation(() => router.push(ROUTES.QUESTION(result.data._id)));
@@ -117,7 +132,8 @@ const QuestionForm = () => {
     }
 
     // Errors about one of our fields go under that field; anything else
-    // (e.g. 401 when the session expired) becomes a toast
+    // (e.g. 401 when the session expired, 403 when it isn't yours) becomes
+    // a toast
     const { message, details = {} } = result.error;
     let shownOnField = false;
     for (const [field, messages] of Object.entries(details)) {
@@ -126,14 +142,17 @@ const QuestionForm = () => {
       shownOnField = true;
     }
     if (!shownOnField) {
-      toast.error("Couldn't post your question", { description: message });
+      toast.error(
+        isEdit ? "Couldn't save your changes" : "Couldn't post your question",
+        { description: message },
+      );
     }
   };
 
   const isBusy = form.formState.isSubmitting || isNavigating;
 
   return (
-    <form onSubmit={form.handleSubmit(handleCreateQuestion)}>
+    <form onSubmit={form.handleSubmit(handleSubmit)}>
       <FieldGroup className="gap-10">
         <Controller
           control={form.control}
@@ -249,6 +268,8 @@ const QuestionForm = () => {
                 <Loader2Icon className="size-4 animate-spin" aria-hidden />
                 Submitting...
               </>
+            ) : isEdit ? (
+              "Save changes"
             ) : (
               "Ask a Question"
             )}
