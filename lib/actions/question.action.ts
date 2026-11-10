@@ -7,15 +7,30 @@ import type { z } from "zod";
 
 import Question, { type IQuestionDoc } from "@/database/question.model";
 import TagQuestion from "@/database/tag-question.model";
-import Tag from "@/database/tag.model";
+import Tag, { type ITagDoc } from "@/database/tag.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
-import { UnauthorizedError } from "@/lib/http-errors";
+import {
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
-import { AskQuestionSchema } from "@/lib/validations";
+import {
+  AskQuestionSchema,
+  EditQuestionSchema,
+  GetQuestionSchema,
+} from "@/lib/validations";
 import type { ActionResponse, Serialized } from "@/types";
 
 export type CreateQuestionInput = z.input<typeof AskQuestionSchema>;
+export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
+export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
+
+// A question with its tags loaded (populated) instead of just their ids
+export type QuestionWithTags = Omit<IQuestionDoc, "tags"> & {
+  tags: ITagDoc[];
+};
 
 // Same collation as the Tag name index: the lookup ignores case and uses
 // the index (see tag.model.ts)
@@ -82,6 +97,135 @@ export async function createQuestion(
       data: JSON.parse(
         JSON.stringify(question.toObject()),
       ) as Serialized<IQuestionDoc>,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Updates the title, content and tags of a question. Only its author can.
+// Tags are compared by name, ignoring case: kept tags are left alone, new
+// ones count one more question, removed ones one less.
+export async function editQuestion(
+  input: EditQuestionInput,
+): Promise<ActionResponse<Serialized<IQuestionDoc>>> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: EditQuestionSchema,
+      authorize: true,
+    });
+    const { questionId, title, content, tags } = params;
+
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    const { connection } = await dbConnect();
+
+    // Same as createQuestion: all or nothing, and safe to run again
+    const question = await connection.transaction(async (dbSession) => {
+      const found = await Question.findById(questionId).session(dbSession);
+      if (!found) throw new NotFoundError("Question");
+      if (!found.author.equals(userId)) {
+        throw new ForbiddenError("Only the author can edit this question");
+      }
+
+      // The tags it has now, by lowercase name ("React" = "react")
+      const currentTags = await Tag.find({ _id: { $in: found.tags } }).session(
+        dbSession,
+      );
+      const currentIds = new Map(
+        currentTags.map((tag) => [tag.name.toLowerCase(), tag._id]),
+      );
+      const wanted = new Set(tags.map((name) => name.toLowerCase()));
+      const removedIds = currentTags
+        .filter((tag) => !wanted.has(tag.name.toLowerCase()))
+        .map((tag) => tag._id);
+
+      // The new list, in the order the user typed it
+      const tagIds = [];
+      const addedIds = [];
+      for (const name of tags) {
+        const currentId = currentIds.get(name.toLowerCase());
+        if (currentId) {
+          tagIds.push(currentId);
+          continue;
+        }
+        // An exact match, not a regex (see createQuestion)
+        const tag = await Tag.findOneAndUpdate(
+          { name },
+          { $inc: { questions: 1 } },
+          {
+            upsert: true,
+            returnDocument: "after",
+            collation: TAG_NAME_COLLATION,
+            session: dbSession,
+          },
+        );
+        tagIds.push(tag._id);
+        addedIds.push(tag._id);
+      }
+
+      if (removedIds.length > 0) {
+        // $inc skips `min: 0`, so the filter keeps counts from going negative
+        await Tag.updateMany(
+          { _id: { $in: removedIds }, questions: { $gt: 0 } },
+          { $inc: { questions: -1 } },
+          { session: dbSession },
+        );
+        await TagQuestion.deleteMany(
+          { question: found._id, tag: { $in: removedIds } },
+          { session: dbSession },
+        );
+      }
+
+      if (addedIds.length > 0) {
+        await TagQuestion.insertMany(
+          addedIds.map((tag) => ({ tag, question: found._id })),
+          { session: dbSession },
+        );
+      }
+
+      // save() runs the schema rules again (title length, 1 to 3 tags)
+      found.set({ title, content, tags: tagIds });
+      await found.save({ session: dbSession });
+      return found;
+    });
+
+    return {
+      success: true,
+      status: 200,
+      data: JSON.parse(
+        JSON.stringify(question.toObject()),
+      ) as Serialized<IQuestionDoc>,
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Loads one question with its tags. No sign-in needed: questions are
+// public, and this is also callable as a POST like every action here.
+export async function getQuestion(
+  input: GetQuestionInput,
+): Promise<ActionResponse<Serialized<QuestionWithTags>>> {
+  try {
+    const { params } = await action({
+      params: input,
+      schema: GetQuestionSchema,
+    });
+
+    const question = await Question.findById(params.questionId)
+      .populate<{ tags: ITagDoc[] }>("tags")
+      .lean();
+    if (!question) throw new NotFoundError("Question");
+
+    return {
+      success: true,
+      status: 200,
+      data: JSON.parse(
+        JSON.stringify(question),
+      ) as Serialized<QuestionWithTags>,
     };
   } catch (error) {
     return handleError(error);

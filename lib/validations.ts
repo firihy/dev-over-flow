@@ -179,3 +179,12 @@ export const SignInWithOAuthSchema = z.object({
     username: z.string().trim().optional(),
   }),
 });
+
+// Body of editQuestion: the same fields as asking, plus which question
+export const EditQuestionSchema = AskQuestionSchema.extend({
+  questionId: objectIdSchema("Question ID"),
+});
+
+export const GetQuestionSchema = z.object({
+  questionId: objectIdSchema("Question ID"),
+});
