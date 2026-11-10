@@ -2,6 +2,8 @@ import "server-only";
 
 import mongoose, { type Mongoose } from "mongoose";
 
+// Registers every model, so populate() can find them (see database/index.ts)
+import "@/database";
 import logger from "@/lib/logger";
 
 interface MongooseCache {
