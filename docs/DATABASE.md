@@ -146,12 +146,16 @@ erDiagram
   are indexed, so either can find "questions with this tag". Nothing in the
   schemas keeps them in step: the code that creates or edits a question must
   write both, in one transaction. `createQuestion`
-  (`lib/actions/question.action.ts`) does this for new questions.
+  (`lib/actions/question.action.ts`) does this for new questions, and
+  `editQuestion` for edits: it compares the old and new tags by lowercase
+  name, adds links and `+1` for new tags, removes links and `-1` for dropped
+  ones, and leaves kept tags alone.
 - **The 1–3 tag rule** is a validator on `Question.tags`. It counts ids, so it
   doesn't stop the same tag twice, and array updates like `$push` skip it. The
   code must check both: `AskQuestionSchema` rejects the same tag twice
-  (ignoring case), and `createQuestion` saves the question with its tags in
-  one `create`, so the validator runs.
+  (ignoring case), `createQuestion` saves the question with its tags in
+  one `create`, and `editQuestion` sets the new list and calls `save()`, so
+  the validator runs in both.
 - **Counters are copies.** `Question.answers`, `upvotes`, `downvotes` and
   `Tag.questions` could be counted from other collections. `views` can't:
   `Interaction` needs a user, so signed-out views leave no record and the

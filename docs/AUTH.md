@@ -438,10 +438,16 @@ Ordinary requests never load Mongoose.
 
 ### Signed-in pages
 
-`/ask-question` is the only page that needs a session. The page itself calls
+`/ask-question` and `/questions/[id]/edit` need a session. Each page calls
 `auth()` and, when there's none, `redirect("/sign-in")` (the proxy doesn't
-block anything). The page check is for the user: `createQuestion` checks the
-session again, because a server action can be called without the page.
+block anything). The page check is for the user: `createQuestion` and
+`editQuestion` check the session again, because a server action can be
+called without the page.
+
+The edit page also checks the author: someone else's question redirects to
+the question page. `editQuestion` repeats that check and answers 403
+(`ForbiddenError`) when the signed-in user isn't the author. `getQuestion`,
+which loads the question, needs no session: questions are public.
 
 ### Avatar and navigation
 
@@ -482,16 +488,16 @@ it expires (30 days by default).
 
 ## 5. Current limitations
 
-| Limitation                                                                                                                            | Consequence                                                                                                          | Code                                |
-| ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| No rate limit on sign-in or sign-up attempts.                                                                                         | Passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts`         |
-| OAuth linking trusts the provider's email; GitHub's primary email may be unverified.                                                  | Someone with an unverified GitHub email matching yours could be linked to your user. Fix: only link verified emails. | `sign-in-with-oauth.ts`             |
-| No email verification for email/password sign-ups.                                                                                    | Anyone can register any email address.                                                                               | —                                   |
-| bcrypt only uses the first 72 bytes, but the schema allows 100 characters.                                                            | Long passwords that share the first 72 bytes match each other.                                                       | `passwordSchema`                    |
-| Session name/avatar aren't refreshed after a profile change.                                                                          | Stale until the next sign-in. Fix: refresh in `jwt` with `trigger === "update"`.                                     | `auth.ts`                           |
-| Usernames are case-sensitive.                                                                                                         | `John` and `john` can both exist.                                                                                    | `user.model.ts`                     |
-| No route protection in the proxy (no `authorized` callback). Only `/ask-question` checks `auth()` itself and redirects to `/sign-in`. | Every other page is reachable signed out.                                                                            | `proxy.ts`, `ask-question/page.tsx` |
-| `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`.                                       | Those routes are public.                                                                                             | `app/api/**`                        |
+| Limitation                                                                                                                                                         | Consequence                                                                                                          | Code                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| No rate limit on sign-in or sign-up attempts.                                                                                                                      | Passwords can be brute-forced.                                                                                       | `auth.ts`, `auth.action.ts`                                         |
+| OAuth linking trusts the provider's email; GitHub's primary email may be unverified.                                                                               | Someone with an unverified GitHub email matching yours could be linked to your user. Fix: only link verified emails. | `sign-in-with-oauth.ts`                                             |
+| No email verification for email/password sign-ups.                                                                                                                 | Anyone can register any email address.                                                                               | —                                                                   |
+| bcrypt only uses the first 72 bytes, but the schema allows 100 characters.                                                                                         | Long passwords that share the first 72 bytes match each other.                                                       | `passwordSchema`                                                    |
+| Session name/avatar aren't refreshed after a profile change.                                                                                                       | Stale until the next sign-in. Fix: refresh in `jwt` with `trigger === "update"`.                                     | `auth.ts`                                                           |
+| Usernames are case-sensitive.                                                                                                                                      | `John` and `john` can both exist.                                                                                    | `user.model.ts`                                                     |
+| No route protection in the proxy (no `authorized` callback). Only `/ask-question` and `/questions/[id]/edit` check `auth()` themselves and redirect to `/sign-in`. | Every other page is reachable signed out.                                                                            | `proxy.ts`, `ask-question/page.tsx`, `questions/[id]/edit/page.tsx` |
+| `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`.                                                                    | Those routes are public.                                                                                             | `app/api/**`                                                        |
 
 ---
 
@@ -499,26 +505,27 @@ it expires (30 days by default).
 
 ### File map
 
-| File                                                  | What it does                                                                                                                                     |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth.ts`                                             | Auth.js config: GitHub, Google and Credentials providers; `signIn`, `jwt`, `session` callbacks. Exports `handlers`, `auth`, `signIn`, `signOut`. |
-| `app/api/auth/[...nextauth]/route.ts`                 | Mounts Auth.js at `/api/auth/*`.                                                                                                                 |
-| `proxy.ts`                                            | Next 16 proxy (formerly middleware). Runs `auth` on page requests; skips `/api`, `_next`, images and icons.                                      |
-| `lib/auth/sign-in-with-oauth.ts`                      | Server-only. Find, link or create the User and Account behind an OAuth login.                                                                    |
-| `lib/auth/verify-credentials.ts`                      | Server-only. Checks an email/password login; returns the user or `null`.                                                                         |
-| `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                 |
-| `lib/actions/question.action.ts`                      | `createQuestion`: the first action that needs a signed-in user (`authorize: true`). The question's author is `session.user.id`.                  |
-| `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                        |
-| `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                   |
-| `lib/handlers/action.ts`                              | `action()`: validates input, checks the session with `authorize: true`, connects to the DB. Throws on problems.                                  |
-| `constants/accounts.ts`                               | `OAUTH_PROVIDERS` and `ACCOUNT_PROVIDERS`. Free of Mongoose, so client code can import it.                                                       |
-| `database/user.model.ts`, `database/account.model.ts` | The two collections (see [section 1](#1-identity-and-data)).                                                                                     |
-| `components/forms/AuthForm.tsx`                       | Sign-in/sign-up form: runs the action, shows field errors and toasts, redirects to `/`.                                                          |
-| `components/forms/SocialAuthForm.tsx`                 | GitHub/Google buttons; call `signIn(provider)` from `next-auth/react`.                                                                           |
-| `components/UserAvatar.tsx`                           | Round avatar linking to `/profile/<id>`, with an initials fallback.                                                                              |
-| `components/navigation/*`                             | Navbar avatar, and Log In / Sign Up / Log Out in the sidebar and mobile menu.                                                                    |
-| `app/(root)/ask-question/page.tsx`                    | Redirects signed-out users to `/sign-in`.                                                                                                        |
-| `app/layout.tsx`                                      | Passes the server session into `<SessionProvider>`.                                                                                              |
+| File                                                  | What it does                                                                                                                                                                           |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.ts`                                             | Auth.js config: GitHub, Google and Credentials providers; `signIn`, `jwt`, `session` callbacks. Exports `handlers`, `auth`, `signIn`, `signOut`.                                       |
+| `app/api/auth/[...nextauth]/route.ts`                 | Mounts Auth.js at `/api/auth/*`.                                                                                                                                                       |
+| `proxy.ts`                                            | Next 16 proxy (formerly middleware). Runs `auth` on page requests; skips `/api`, `_next`, images and icons.                                                                            |
+| `lib/auth/sign-in-with-oauth.ts`                      | Server-only. Find, link or create the User and Account behind an OAuth login.                                                                                                          |
+| `lib/auth/verify-credentials.ts`                      | Server-only. Checks an email/password login; returns the user or `null`.                                                                                                               |
+| `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                                                       |
+| `lib/actions/question.action.ts`                      | `createQuestion` and `editQuestion` need a signed-in user (`authorize: true`). The author is `session.user.id`, and only the author can edit (403 otherwise). `getQuestion` is public. |
+| `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                                                              |
+| `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                                                         |
+| `lib/handlers/action.ts`                              | `action()`: validates input, checks the session with `authorize: true`, connects to the DB. Throws on problems.                                                                        |
+| `constants/accounts.ts`                               | `OAUTH_PROVIDERS` and `ACCOUNT_PROVIDERS`. Free of Mongoose, so client code can import it.                                                                                             |
+| `database/user.model.ts`, `database/account.model.ts` | The two collections (see [section 1](#1-identity-and-data)).                                                                                                                           |
+| `components/forms/AuthForm.tsx`                       | Sign-in/sign-up form: runs the action, shows field errors and toasts, redirects to `/`.                                                                                                |
+| `components/forms/SocialAuthForm.tsx`                 | GitHub/Google buttons; call `signIn(provider)` from `next-auth/react`.                                                                                                                 |
+| `components/UserAvatar.tsx`                           | Round avatar linking to `/profile/<id>`, with an initials fallback.                                                                                                                    |
+| `components/navigation/*`                             | Navbar avatar, and Log In / Sign Up / Log Out in the sidebar and mobile menu.                                                                                                          |
+| `app/(root)/ask-question/page.tsx`                    | Redirects signed-out users to `/sign-in`.                                                                                                                                              |
+| `app/(root)/questions/[id]/edit/page.tsx`             | Redirects signed-out users to `/sign-in` and non-authors to the question page.                                                                                                         |
+| `app/layout.tsx`                                      | Passes the server session into `<SessionProvider>`.                                                                                                                                    |
 
 ### Public buttons vs back-office helpers
 
