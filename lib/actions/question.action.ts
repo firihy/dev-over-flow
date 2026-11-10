@@ -3,11 +3,16 @@
 // Server actions: every export here can be called from the browser with a
 // POST, so each one validates its own input.
 
+import type { QueryFilter } from "mongoose";
 import type { z } from "zod";
 
-import Question, { type IQuestionDoc } from "@/database/question.model";
+import Question, {
+  type IQuestion,
+  type IQuestionDoc,
+} from "@/database/question.model";
 import TagQuestion from "@/database/tag-question.model";
 import Tag, { type ITagDoc } from "@/database/tag.model";
+import type { IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import {
@@ -20,12 +25,18 @@ import {
   AskQuestionSchema,
   EditQuestionSchema,
   GetQuestionSchema,
+  PaginatedSearchParamsSchema,
 } from "@/lib/validations";
-import type { ActionResponse, Serialized } from "@/types";
+import type {
+  ActionResponse,
+  Question as QuestionCardData,
+  Serialized,
+} from "@/types";
 
 export type CreateQuestionInput = z.input<typeof AskQuestionSchema>;
 export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
 export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
+export type GetQuestionsInput = z.input<typeof PaginatedSearchParamsSchema>;
 
 // A question with its tags loaded (populated) instead of just their ids
 export type QuestionWithTags = Omit<IQuestionDoc, "tags"> & {
@@ -227,6 +238,91 @@ export async function getQuestion(
         JSON.stringify(question),
       ) as Serialized<QuestionWithTags>,
     };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Matches the text literally: "c++" or "(a+)+$" typed in the search box
+// must not be read as a regex pattern (one can crash, the other hang)
+const escapeRegex = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// What each filter sorts by. _id comes last so questions with the same
+// date or votes keep a fixed order, and none repeat or go missing between
+// pages.
+const SORTS = {
+  newest: { createdAt: -1, _id: -1 },
+  popular: { upvotes: -1, createdAt: -1, _id: -1 },
+  unanswered: { createdAt: -1, _id: -1 },
+} as const;
+
+// A question as getQuestions loads it: tags and author filled in with
+// only the fields it asked for
+type ListedQuestion = Omit<IQuestionDoc, "tags" | "author"> & {
+  tags: Pick<ITagDoc, "_id" | "name">[];
+  author: Pick<IUserDoc, "_id" | "name" | "image"> | null;
+};
+
+// One page of questions for the home page, newest first unless a filter
+// says otherwise. Public: no sign-in needed.
+export async function getQuestions(
+  input: GetQuestionsInput,
+): Promise<ActionResponse<{ questions: QuestionCardData[]; isNext: boolean }>> {
+  try {
+    // Use the parsed params: they have the defaults and the trimmed query
+    const { params } = await action({
+      params: input,
+      schema: PaginatedSearchParamsSchema,
+    });
+    const { page, pageSize, query, filter = "newest" } = params;
+
+    const filterQuery: QueryFilter<IQuestion> = {};
+    if (query) {
+      const pattern = { $regex: escapeRegex(query), $options: "i" };
+      filterQuery.$or = [{ title: pattern }, { content: pattern }];
+    }
+    if (filter === "unanswered") filterQuery.answers = 0;
+
+    // One extra: if it comes back, there's a next page. Cheaper than
+    // counting every match with countDocuments().
+    const docs = await Question.find(filterQuery)
+      .sort(SORTS[filter])
+      .skip((page - 1) * pageSize)
+      .limit(pageSize + 1)
+      .populate("tags", "name")
+      .populate("author", "name image")
+      .lean<ListedQuestion[]>();
+
+    const isNext = docs.length > pageSize;
+
+    // Only the fields the card shows. A question whose author was deleted
+    // comes back with author: null and is left out.
+    const questions = docs.slice(0, pageSize).flatMap(({ author, ...q }) =>
+      author
+        ? [
+            {
+              _id: q._id.toString(),
+              title: q.title,
+              tags: q.tags.map((tag) => ({
+                _id: tag._id.toString(),
+                name: tag.name,
+              })),
+              author: {
+                _id: author._id.toString(),
+                name: author.name,
+                image: author.image,
+              },
+              upvotes: q.upvotes,
+              answers: q.answers,
+              views: q.views,
+              createdAt: q.createdAt.toISOString(),
+            },
+          ]
+        : [],
+    );
+
+    return { success: true, status: 200, data: { questions, isNext } };
   } catch (error) {
     return handleError(error);
   }

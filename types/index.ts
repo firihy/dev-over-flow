@@ -23,7 +23,8 @@ export interface Question {
   upvotes: number;
   answers: number;
   views: number;
-  createdAt: Date;
+  // An ISO date string: it comes from the server as JSON
+  createdAt: string;
 }
 
 // ---- Responses returned by server actions and API routes ----

@@ -16,7 +16,7 @@ const QuestionCard = ({
   question: { _id, title, tags, author, createdAt, upvotes, answers, views },
 }: QuestionCardProps) => {
   const timeStamp = (
-    <time dateTime={createdAt.toISOString()}>{getTimeStamp(createdAt)}</time>
+    <time dateTime={createdAt}>{getTimeStamp(new Date(createdAt))}</time>
   );
 
   return (

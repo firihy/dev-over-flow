@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
+import { HOME_FILTERS } from "@/constants/filters";
 
 // Rules for a new password, shared by sign-up and accounts
 const passwordSchema = z
@@ -187,4 +188,17 @@ export const EditQuestionSchema = AskQuestionSchema.extend({
 
 export const GetQuestionSchema = z.object({
   questionId: objectIdSchema("Question ID"),
+});
+
+// The most results one request can ask for. getQuestions is a public
+// endpoint, so without a cap ?pageSize=1000000 would load everything.
+export const MAX_PAGE_SIZE = 50;
+
+// Paging and search for lists (e.g. the home page questions)
+export const PaginatedSearchParamsSchema = z.object({
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).default(10),
+  // Capped so a search stays cheap: it scans titles and content
+  query: z.string().trim().max(100).optional(),
+  filter: z.enum(HOME_FILTERS.map((filter) => filter.value)).optional(),
 });

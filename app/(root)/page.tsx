@@ -27,7 +27,7 @@ const questions: Question[] = [
     upvotes: 10,
     answers: 5,
     views: 100,
-    createdAt: new Date("2026-10-01"),
+    createdAt: "2026-10-01T00:00:00.000Z",
   },
   {
     _id: "2",
@@ -40,7 +40,7 @@ const questions: Question[] = [
     upvotes: 10,
     answers: 5,
     views: 100,
-    createdAt: new Date("2026-10-15"),
+    createdAt: "2026-10-15T00:00:00.000Z",
   },
 ];
 
