@@ -164,6 +164,19 @@ erDiagram
   whenever the real data changes. `min: 0` runs on create, save and validated
   updates, but **never on `$inc`**, so a decrement must guard in its filter,
   e.g. `{ answers: { $gt: 0 } }`.
+- **Every model is registered on connect.** `populate("author")` looks the
+  model up by name, so `User` must be registered even in a file that never
+  imports it. `database/index.ts` imports every model, and `lib/mongoose.ts`
+  imports that file.
+- **Listing questions** (`getQuestions` in `lib/actions/question.action.ts`)
+  pages with `skip`/`limit` and fetches one extra document to know if there's a
+  next page, instead of a count query. Every sort ends with `_id`, so questions
+  with the same date or votes keep a fixed order across pages. The search text
+  is escaped before it goes into `$regex` (so `c++` is matched literally) and
+  capped at 100 characters, and `pageSize` at 50. The search scans titles and
+  content without an index, which is fine while the collection is small.
+  Questions whose author was deleted (`author` populates to `null`) are left
+  out of the list.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
