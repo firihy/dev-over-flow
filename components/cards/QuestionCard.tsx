@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import TagCard from "@/components/cards/TagCard";
 import Metric from "@/components/Metric";
+import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
 import { getTimeStamp } from "@/lib/utils";
 import type { Question } from "@/types";
@@ -9,8 +10,6 @@ import type { Question } from "@/types";
 interface QuestionCardProps {
   question: Question;
 }
-
-const DEFAULT_AVATAR = "/icons/avatar.svg";
 
 const QuestionCard = ({
   question: { _id, title, tags, author, createdAt, upvotes, answers, views },
@@ -43,16 +42,24 @@ const QuestionCard = ({
       </div>
 
       <div className="flex-between mt-6 w-full flex-wrap gap-3">
-        <Metric
-          imgUrl={author.image ?? DEFAULT_AVATAR}
-          // The default avatar is white, so invert it in light mode
-          imgStyles={author.image ? "object-cover" : "invert-colors"}
-          value={author.name}
-          title={<>• asked {timeStamp}</>}
-          href={ROUTES.PROFILE_DETAILS(author._id)}
-          textStyles="body-medium text-dark400_light700"
-          isAuthor
-        />
+        <div className="flex-center gap-1">
+          {/* Shows the user's initials when there's no picture */}
+          <UserAvatar
+            id={author._id}
+            name={author.name}
+            imageUrl={author.image}
+            className="size-5.5"
+          />
+          <Link
+            href={ROUTES.PROFILE_DETAILS(author._id)}
+            className="body-medium text-dark400_light700 flex items-center gap-1"
+          >
+            {author.name}
+            <span className="small-regular line-clamp-1 max-sm:hidden">
+              • asked {timeStamp}
+            </span>
+          </Link>
+        </div>
 
         <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-start">
           <Metric

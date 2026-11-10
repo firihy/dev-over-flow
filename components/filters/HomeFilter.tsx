@@ -3,14 +3,9 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { HOME_FILTERS } from "@/constants/filters";
 import { formUrlQuery, removeKeysFromUrlQuery } from "@/lib/url";
 import { cn } from "@/lib/utils";
-
-// TODO: Add Newest, Popular, Unanswered and Recommended once questions are stored
-const filters = [
-  { name: "React", value: "react" },
-  { name: "JavaScript", value: "javascript" },
-];
 
 const HomeFilter = () => {
   const pathname = usePathname();
@@ -32,7 +27,7 @@ const HomeFilter = () => {
   return (
     // TODO: Add a dropdown filter for mobile
     <div className="mt-10 hidden flex-wrap gap-3 sm:flex">
-      {filters.map(({ name, value }) => {
+      {HOME_FILTERS.map(({ name, value }) => {
         const isActive = activeFilter === value;
 
         return (

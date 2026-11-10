@@ -11,8 +11,6 @@ interface MetricProps {
   textStyles: string;
   href?: string;
   imgStyles?: string;
-  // Hides the title on small screens to keep the author line short
-  isAuthor?: boolean;
 }
 
 const Metric = ({
@@ -22,7 +20,6 @@ const Metric = ({
   textStyles,
   href,
   imgStyles,
-  isAuthor,
 }: MetricProps) => {
   const content = (
     <>
@@ -37,14 +34,7 @@ const Metric = ({
 
       <p className={cn("flex items-center gap-1", textStyles)}>
         {value}
-        <span
-          className={cn(
-            "small-regular line-clamp-1",
-            isAuthor && "max-sm:hidden",
-          )}
-        >
-          {title}
-        </span>
+        <span className="small-regular line-clamp-1">{title}</span>
       </p>
     </>
   );

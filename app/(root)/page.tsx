@@ -5,59 +5,33 @@ import QuestionCard from "@/components/cards/QuestionCard";
 import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
+import { isHomeFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
+import { getQuestions } from "@/lib/actions/question.action";
 import { getFirstParam } from "@/lib/url";
-import type { Question } from "@/types";
+import { MAX_PAGE_SIZE } from "@/lib/validations";
 
-// TODO: Replace with real questions once they are stored
-const questions: Question[] = [
-  {
-    _id: "1",
-    title: "How to learn React?",
-    tags: [
-      { _id: "1", name: "React" },
-      { _id: "2", name: "JavaScript" },
-    ],
-    author: {
-      _id: "1",
-      name: "John Doe",
-      image:
-        "https://static.vecteezy.com/system/resources/previews/002/002/403/non_2x/man-with-beard-avatar-character-isolated-icon-free-vector.jpg",
-    },
-    upvotes: 10,
-    answers: 5,
-    views: 100,
-    createdAt: "2026-10-01T00:00:00.000Z",
-  },
-  {
-    _id: "2",
-    title: "How to learn JavaScript?",
-    tags: [
-      { _id: "2", name: "JavaScript" },
-      { _id: "3", name: "Node.js" },
-    ],
-    author: { _id: "2", name: "Jane Smith" },
-    upvotes: 10,
-    answers: 5,
-    views: 100,
-    createdAt: "2026-10-15T00:00:00.000Z",
-  },
-];
+// "3" -> 3. Anything else ("abc", "-1", "2.5") -> undefined, so the
+// default is used instead of the page failing validation.
+const toPositiveInt = (value: string) => {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+};
 
 const SEARCH_PLACEHOLDER = "Search questions...";
 
 const Home = async ({ searchParams }: PageProps<"/">) => {
-  const { query, filter } = await searchParams;
-  const normalizedQuery = getFirstParam(query).trim().toLowerCase();
-  const normalizedFilter = getFirstParam(filter).toLowerCase();
+  const { page, pageSize, query, filter } = await searchParams;
+  const pageSizeNumber = toPositiveInt(getFirstParam(pageSize));
+  const filterValue = getFirstParam(filter);
 
-  const filteredQuestions = questions.filter((question) => {
-    const matchesQuery = question.title.toLowerCase().includes(normalizedQuery);
-    const matchesFilter =
-      !normalizedFilter ||
-      question.tags.some((tag) => tag.name.toLowerCase() === normalizedFilter);
-
-    return matchesQuery && matchesFilter;
+  const result = await getQuestions({
+    page: toPositiveInt(getFirstParam(page)),
+    pageSize: pageSizeNumber && Math.min(pageSizeNumber, MAX_PAGE_SIZE),
+    // Over-long searches are cut, not rejected (the schema allows 100)
+    query: getFirstParam(query).trim().slice(0, 100),
+    // An unknown ?filter= falls back to newest
+    filter: isHomeFilter(filterValue) ? filterValue : undefined,
   });
 
   return (
@@ -91,8 +65,12 @@ const Home = async ({ searchParams }: PageProps<"/">) => {
       </Suspense>
 
       <section className="mt-10 flex w-full flex-col gap-6">
-        {filteredQuestions.length > 0 ? (
-          filteredQuestions.map((question) => (
+        {!result.success ? (
+          <p className="paragraph-regular text-dark400_light700">
+            {result.error.message || "Couldn't load the questions."}
+          </p>
+        ) : result.data.questions.length > 0 ? (
+          result.data.questions.map((question) => (
             <QuestionCard key={question._id} question={question} />
           ))
         ) : (
