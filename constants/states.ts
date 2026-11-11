@@ -54,3 +54,16 @@ export const EMPTY_TAGS_SEARCH: EmptyState = {
   message: "Try another name, or clear the search.",
   button: { text: "Show All Tags", href: ROUTES.TAGS },
 };
+
+// A tag that no question uses (any more)
+export const EMPTY_TAG_QUESTIONS: EmptyState = {
+  title: "No Questions With This Tag",
+  message: "Be the first to ask one with this tag.",
+  button: { text: "Ask a Question", href: ROUTES.ASK_QUESTION },
+};
+
+// A search or a later page on a tag: it has questions, none match
+export const EMPTY_TAG_QUESTIONS_SEARCH: EmptyState = {
+  title: "No Matching Questions",
+  message: "Try other words, or clear the search.",
+};
