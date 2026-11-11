@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
+import LocalSearch from "@/components/search/LocalSearch";
 import {
   EMPTY_TAG_QUESTIONS,
   EMPTY_TAG_QUESTIONS_SEARCH,
@@ -10,7 +12,6 @@ import { getTagQuestions } from "@/lib/actions/tag.action";
 import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
 
-// TODO: Add the search box from the design
 const TagDetails = async ({
   params,
   searchParams,
@@ -40,6 +41,19 @@ const TagDetails = async ({
       <h1 className="h1-bold text-dark100_light900">
         {result.success ? result.data.tag.name : "Tag"}
       </h1>
+
+      <section className="mt-11">
+        <Suspense
+          fallback={
+            <div className="background-light800_darkgradient min-h-14 rounded-[10px]" />
+          }
+        >
+          <LocalSearch
+            placeholder="Search questions..."
+            label="Search this tag's questions"
+          />
+        </Suspense>
+      </section>
 
       <DataRenderer
         success={result.success}
