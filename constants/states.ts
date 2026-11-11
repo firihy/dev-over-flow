@@ -1,7 +1,7 @@
 import ROUTES from "@/constants/routes";
 
 // Text for DataRenderer's empty and error states. Add one EMPTY_* per list
-// (tags, collections...) when its page is built.
+// (collections...) when its page is built.
 
 // Shared by the empty state link and the Retry button
 export const STATE_BUTTON_CLASS =
@@ -40,4 +40,17 @@ export const EMPTY_QUESTION_SEARCH: EmptyState = {
   title: "No Matching Questions",
   message: "Try other words, or clear the search and filters.",
   button: { text: "Show All Questions", href: ROUTES.HOME },
+};
+
+export const EMPTY_TAGS: EmptyState = {
+  title: "No Tags Found",
+  message: "The tag cloud is empty. Add some keywords to make it rain.",
+  button: { text: "Ask a Question", href: ROUTES.ASK_QUESTION },
+};
+
+// When a search is on, or past the last page: tags exist, none match
+export const EMPTY_TAGS_SEARCH: EmptyState = {
+  title: "No Matching Tags",
+  message: "Try another name, or clear the search.",
+  button: { text: "Show All Tags", href: ROUTES.TAGS },
 };

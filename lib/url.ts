@@ -45,3 +45,10 @@ type SearchParamValue = string | string[] | undefined;
 // Repeated params (`?a=1&a=2`) arrive as an array; use the first value
 export const getFirstParam = (value: SearchParamValue) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
+
+// "3" -> 3. Anything else ("abc", "-1", "2.5") -> undefined, so the
+// default is used instead of the page failing validation.
+export const toPositiveInt = (value: string) => {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+};

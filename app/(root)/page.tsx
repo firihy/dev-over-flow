@@ -10,15 +10,8 @@ import { isHomeFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { EMPTY_QUESTION, EMPTY_QUESTION_SEARCH } from "@/constants/states";
 import { getQuestions } from "@/lib/actions/question.action";
-import { getFirstParam } from "@/lib/url";
+import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
-
-// "3" -> 3. Anything else ("abc", "-1", "2.5") -> undefined, so the
-// default is used instead of the page failing validation.
-const toPositiveInt = (value: string) => {
-  const number = Number(value);
-  return Number.isInteger(number) && number > 0 ? number : undefined;
-};
 
 const SEARCH_PLACEHOLDER = "Search questions...";
 
