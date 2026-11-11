@@ -12,7 +12,6 @@ import Question, {
 } from "@/database/question.model";
 import TagQuestion from "@/database/tag-question.model";
 import Tag, { type ITagDoc } from "@/database/tag.model";
-import type { IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import {
@@ -21,6 +20,11 @@ import {
   UnauthorizedError,
 } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
+import {
+  CARD_POPULATE,
+  type ListedQuestion,
+  toQuestionCards,
+} from "@/lib/questions";
 import { escapeRegex } from "@/lib/regex";
 import {
   AskQuestionSchema,
@@ -253,13 +257,6 @@ const SORTS = {
   unanswered: { createdAt: -1, _id: -1 },
 } as const;
 
-// A question as getQuestions loads it: tags and author filled in with
-// only the fields it asked for
-type ListedQuestion = Omit<IQuestionDoc, "tags" | "author"> & {
-  tags: Pick<ITagDoc, "_id" | "name">[];
-  author: Pick<IUserDoc, "_id" | "name" | "image"> | null;
-};
-
 // One page of questions for the home page, newest first unless a filter
 // says otherwise. Public: no sign-in needed.
 export async function getQuestions(
@@ -286,37 +283,12 @@ export async function getQuestions(
       .sort(SORTS[filter])
       .skip((page - 1) * pageSize)
       .limit(pageSize + 1)
-      .populate("tags", "name")
-      .populate("author", "name image")
+      .populate(CARD_POPULATE)
       .lean<ListedQuestion[]>();
 
     const isNext = docs.length > pageSize;
 
-    // Only the fields the card shows. A question whose author was deleted
-    // comes back with author: null and is left out.
-    const questions = docs.slice(0, pageSize).flatMap(({ author, ...q }) =>
-      author
-        ? [
-            {
-              _id: q._id.toString(),
-              title: q.title,
-              tags: q.tags.map((tag) => ({
-                _id: tag._id.toString(),
-                name: tag.name,
-              })),
-              author: {
-                _id: author._id.toString(),
-                name: author.name,
-                image: author.image,
-              },
-              upvotes: q.upvotes,
-              answers: q.answers,
-              views: q.views,
-              createdAt: q.createdAt.toISOString(),
-            },
-          ]
-        : [],
-    );
+    const questions = toQuestionCards(docs.slice(0, pageSize));
 
     return { success: true, status: 200, data: { questions, isNext } };
   } catch (error) {
