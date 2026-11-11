@@ -184,6 +184,13 @@ erDiagram
   collation so `name` sorts ignoring case ("angular" before "React"). The
   shared paging fields are `PaginatedSearchParamsSchema`; each list adds its
   own `filter` (`QuestionsSearchParamsSchema`, `TagsSearchParamsSchema`).
+- **One tag's questions** (`getTagQuestions` in `lib/actions/tag.action.ts`)
+  loads the tag and a page of questions with `tags: tagId` (the `tags`
+  index), newest first with `_id` last. It searches titles and content like
+  the home page. A malformed ID is a 400 and an unknown tag a 404, which the
+  `/tags/[id]` page turns into `notFound()`. Both lists build their cards
+  with `toQuestionCards` in `lib/questions.ts`, which leaves out questions
+  whose author was deleted, so a page can show fewer than `pageSize`.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
