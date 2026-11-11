@@ -1,5 +1,5 @@
 // The sort buttons above the home page questions. The value goes in the
-// URL (?filter=newest) and is checked by PaginatedSearchParamsSchema.
+// URL (?filter=newest) and is checked by QuestionsSearchParamsSchema.
 // TODO: Add Recommended once recommendations are built
 export const HOME_FILTERS = [
   { name: "Newest", value: "newest" },

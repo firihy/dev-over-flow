@@ -194,11 +194,16 @@ export const GetQuestionSchema = z.object({
 // endpoint, so without a cap ?pageSize=1000000 would load everything.
 export const MAX_PAGE_SIZE = 50;
 
-// Paging and search for lists (e.g. the home page questions)
+// Paging and search shared by every list. Each list adds its own
+// `filter`, since the sort options differ (see constants/filters.ts).
 export const PaginatedSearchParamsSchema = z.object({
   page: z.number().int().positive().default(1),
   pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).default(10),
-  // Capped so a search stays cheap: it scans titles and content
+  // Capped so a search stays cheap: it scans the text without an index
   query: z.string().trim().max(100).optional(),
+});
+
+// The home page questions
+export const QuestionsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
   filter: z.enum(HOME_FILTERS.map((filter) => filter.value)).optional(),
 });

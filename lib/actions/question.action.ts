@@ -21,11 +21,12 @@ import {
   UnauthorizedError,
 } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
+import { escapeRegex } from "@/lib/regex";
 import {
   AskQuestionSchema,
   EditQuestionSchema,
   GetQuestionSchema,
-  PaginatedSearchParamsSchema,
+  QuestionsSearchParamsSchema,
 } from "@/lib/validations";
 import type {
   ActionResponse,
@@ -36,7 +37,7 @@ import type {
 export type CreateQuestionInput = z.input<typeof AskQuestionSchema>;
 export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
 export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
-export type GetQuestionsInput = z.input<typeof PaginatedSearchParamsSchema>;
+export type GetQuestionsInput = z.input<typeof QuestionsSearchParamsSchema>;
 
 // A question with its tags loaded (populated) instead of just their ids
 export type QuestionWithTags = Omit<IQuestionDoc, "tags"> & {
@@ -243,11 +244,6 @@ export async function getQuestion(
   }
 }
 
-// Matches the text literally: "c++" or "(a+)+$" typed in the search box
-// must not be read as a regex pattern (one can crash, the other hang)
-const escapeRegex = (text: string) =>
-  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 // What each filter sorts by. _id comes last so questions with the same
 // date or votes keep a fixed order, and none repeat or go missing between
 // pages.
@@ -273,7 +269,7 @@ export async function getQuestions(
     // Use the parsed params: they have the defaults and the trimmed query
     const { params } = await action({
       params: input,
-      schema: PaginatedSearchParamsSchema,
+      schema: QuestionsSearchParamsSchema,
     });
     const { page, pageSize, query, filter = "newest" } = params;
 
