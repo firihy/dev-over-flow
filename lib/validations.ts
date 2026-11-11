@@ -212,3 +212,8 @@ export const QuestionsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
 export const TagsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
   filter: z.enum(TAG_FILTERS.map((filter) => filter.value)).optional(),
 });
+
+// One tag's questions on /tags/[id]: newest first, so no filter
+export const GetTagQuestionsSchema = PaginatedSearchParamsSchema.extend({
+  tagId: objectIdSchema("Tag ID"),
+});
