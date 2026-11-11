@@ -177,6 +177,13 @@ erDiagram
   content without an index, which is fine while the collection is small.
   Questions whose author was deleted (`author` populates to `null`) are left
   out of the list.
+- **Listing tags** (`getTags` in `lib/actions/tag.action.ts`) works the
+  same way: one extra document instead of a count, `_id` last in every sort,
+  and an escaped search on `name`. It sorts by `popular` (question count,
+  the default), `recent`, `oldest` or `name`, and runs with the tag index's
+  collation so `name` sorts ignoring case ("angular" before "React"). The
+  shared paging fields are `PaginatedSearchParamsSchema`; each list adds its
+  own `filter` (`QuestionsSearchParamsSchema`, `TagsSearchParamsSchema`).
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
