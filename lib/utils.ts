@@ -1,12 +1,26 @@
+import { techDescriptions } from "@/constants/techDescriptions";
 import { techMap } from "@/constants/techMap";
 
 export { cn } from "cn";
 
+// "Next.js" -> "nextjs", the form techMap's keys use
+const findTech = (techName: string) =>
+  techMap[techName.replace(/[ .]/g, "").toLowerCase()];
+
 export const getDeviconClassName = (techName: string) => {
-  const normalizedTechName = techName.replace(/[ .]/g, "").toLowerCase();
-  const iconClass = techMap[normalizedTechName];
+  const iconClass = findTech(techName);
 
   return iconClass ? `${iconClass} colored` : "devicon-devicon-plain";
+};
+
+// A line about the tag for its card. Unknown tags get a neutral line
+// rather than a claim that may be wrong ("cooking is a web technology").
+export const getTechDescription = (techName: string) => {
+  const iconClass = findTech(techName);
+
+  return (
+    (iconClass && techDescriptions[iconClass]) ?? `Questions about ${techName}.`
+  );
 };
 
 const TIME_UNITS: { unit: Intl.RelativeTimeFormatUnit; seconds: number }[] = [
