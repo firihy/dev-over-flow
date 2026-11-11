@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
-import { formUrlQuery, removeKeysFromUrlQuery } from "@/lib/url";
+import { formUrlQuery, removeKeysFromUrlQuery, withoutPage } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 interface LocalSearchProps {
@@ -47,7 +47,8 @@ const LocalSearch = ({
     if (trimmedQuery === urlQuery) return;
 
     const timeoutId = setTimeout(() => {
-      const params = searchParams.toString();
+      // New search, new results: start again from page 1
+      const params = withoutPage(searchParams);
       const newUrl = trimmedQuery
         ? formUrlQuery({
             pathname,

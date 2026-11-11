@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { HOME_FILTERS } from "@/constants/filters";
-import { formUrlQuery, removeKeysFromUrlQuery } from "@/lib/url";
+import { formUrlQuery, removeKeysFromUrlQuery, withoutPage } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 const HomeFilter = () => {
@@ -15,7 +15,8 @@ const HomeFilter = () => {
   const activeFilter = searchParams.get("filter") ?? "";
 
   const handleFilterClick = (value: string) => {
-    const params = searchParams.toString();
+    // A new sort shows different questions: start again from page 1
+    const params = withoutPage(searchParams);
     const newUrl =
       value === activeFilter
         ? removeKeysFromUrlQuery({ pathname, params, keysToRemove: ["filter"] })

@@ -40,6 +40,14 @@ export const removeKeysFromUrlQuery = ({
   return buildUrl(pathname, searchParams);
 };
 
+// The current query string minus ?page=, for when a search or filter
+// changes: page 3 of the old results means nothing for the new ones
+export const withoutPage = (searchParams: URLSearchParams) => {
+  const params = new URLSearchParams(searchParams);
+  params.delete("page");
+  return params.toString();
+};
+
 type SearchParamValue = string | string[] | undefined;
 
 // Repeated params (`?a=1&a=2`) arrive as an array; use the first value
