@@ -8,6 +8,11 @@ export interface Tag {
   name: string;
 }
 
+// A tag in the tags list, with how many questions use it
+export interface TagListItem extends Tag {
+  questions: number;
+}
+
 export interface Author {
   _id: string;
   name: string;

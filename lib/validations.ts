@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
-import { HOME_FILTERS } from "@/constants/filters";
+import { HOME_FILTERS, TAG_FILTERS } from "@/constants/filters";
 
 // Rules for a new password, shared by sign-up and accounts
 const passwordSchema = z
@@ -206,4 +206,9 @@ export const PaginatedSearchParamsSchema = z.object({
 // The home page questions
 export const QuestionsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
   filter: z.enum(HOME_FILTERS.map((filter) => filter.value)).optional(),
+});
+
+// The tags page
+export const TagsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
+  filter: z.enum(TAG_FILTERS.map((filter) => filter.value)).optional(),
 });
