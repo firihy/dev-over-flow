@@ -381,6 +381,8 @@
   @apply max-w-full! prose prose-p:my-2 prose-ol:my-0 prose-ul:my-0 dark:prose-p:text-light-700 dark:prose-ol:text-light-700 dark:prose-ul:text-light-500 dark:prose-strong:text-white dark:prose-headings:text-white prose-headings:text-dark-400 prose-h1:text-dark-300 prose-h2:text-dark-300 prose-p:text-dark-500 prose-ul:text-dark-500 prose-ol:text-dark-500;
   /* Text outside a paragraph (e.g. raw HTML shown as text) and tables */
   @apply text-dark-500 dark:text-light-700 prose-td:text-dark-500 dark:prose-td:text-light-700 dark:prose-th:text-white;
+  /* prose wraps inline code in literal backticks; drop them */
+  @apply prose-code:before:content-none prose-code:after:content-none;
 }
 
 @utility markdown-editor {
@@ -466,6 +468,21 @@
 
 .markdown a {
   color: #1da1f2;
+}
+
+/* GFM task lists: the checkbox is the marker, so hide the bullet */
+.markdown .contains-task-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.markdown .task-list-item {
+  padding-inline-start: 0;
+}
+
+.markdown .task-list-item input[type="checkbox"] {
+  margin: 0 0.5em 0 0;
+  vertical-align: middle;
 }
 
 .markdown a,
