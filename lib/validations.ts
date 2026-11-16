@@ -190,6 +190,11 @@ export const GetQuestionSchema = z.object({
   questionId: objectIdSchema("Question ID"),
 });
 
+// Body of incrementViews: which question was opened
+export const IncrementViewsSchema = z.object({
+  questionId: objectIdSchema("Question ID"),
+});
+
 // The most results one request can ask for. getQuestions is a public
 // endpoint, so without a cap ?pageSize=1000000 would load everything.
 export const MAX_PAGE_SIZE = 50;

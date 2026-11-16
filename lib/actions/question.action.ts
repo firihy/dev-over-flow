@@ -31,6 +31,7 @@ import {
   AskQuestionSchema,
   EditQuestionSchema,
   GetQuestionSchema,
+  IncrementViewsSchema,
   QuestionsSearchParamsSchema,
 } from "@/lib/validations";
 import type {
@@ -42,6 +43,7 @@ import type {
 export type CreateQuestionInput = z.input<typeof AskQuestionSchema>;
 export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
 export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
+export type IncrementViewsInput = z.input<typeof IncrementViewsSchema>;
 export type GetQuestionsInput = z.input<typeof QuestionsSearchParamsSchema>;
 
 // A question with its tags and author loaded (populated) instead of just
@@ -293,6 +295,33 @@ export async function getQuestions(
     const questions = toQuestionCards(docs.slice(0, pageSize));
 
     return { success: true, status: 200, data: { questions, isNext } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Adds one view to a question. Called from the browser when a question page
+// opens. Public: anyone can call it, so it only ever adds 1.
+export async function incrementViews(
+  input: IncrementViewsInput,
+): Promise<ActionResponse<{ views: number }>> {
+  try {
+    const { params } = await action({
+      params: input,
+      schema: IncrementViewsSchema,
+    });
+
+    // $inc is done by the database in one step, so two views at the same
+    // moment both count (read, add 1, save would lose one). timestamps:
+    // false keeps updatedAt for real edits, not views.
+    const question = await Question.findByIdAndUpdate(
+      params.questionId,
+      { $inc: { views: 1 } },
+      { returnDocument: "after", timestamps: false, projection: { views: 1 } },
+    ).lean();
+    if (!question) throw new NotFoundError("Question");
+
+    return { success: true, status: 200, data: { views: question.views } };
   } catch (error) {
     return handleError(error);
   }
