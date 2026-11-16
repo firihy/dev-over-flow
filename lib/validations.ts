@@ -258,16 +258,28 @@ export const GetAnswersSchema = PaginatedSearchParamsSchema.omit({
 });
 
 // Body of POST /api/ai/answers: the question's title and body, checked
-// with the same rules as when it was asked. The body is capped so one
-// request can't send a huge (and expensive) prompt to the AI model.
+// with the same rules as when it was asked, plus the user's draft answer
+// (optional) for the AI to improve. Bodies are capped so one request
+// can't send a huge (and expensive) prompt to the AI model.
 export const AI_ANSWER_MAX_CONTENT = 20_000;
+
+const maxContent = (field: string) =>
+  z.string().refine((value) => value.length <= AI_ANSWER_MAX_CONTENT, {
+    message: `${field} cannot exceed ${AI_ANSWER_MAX_CONTENT} characters.`,
+  });
 
 export const AIAnswerSchema = z.object({
   question: AskQuestionSchema.shape.title,
-  content: markdownBody(1, "Question body is required.").refine(
-    (value) => value.length <= AI_ANSWER_MAX_CONTENT,
-    {
-      message: `Question body cannot exceed ${AI_ANSWER_MAX_CONTENT} characters.`,
-    },
+  content: markdownBody(1, "Question body is required.").pipe(
+    maxContent("Question body"),
   ),
+  // An empty or blank draft means "no draft": write an answer from scratch
+  userAnswer: z
+    .string()
+    .trim()
+    .pipe(maxContent("Your answer"))
+    .optional()
+    .transform((value) =>
+      value && visibleLength(value) > 0 ? value : undefined,
+    ),
 });
