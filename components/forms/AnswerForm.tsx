@@ -2,16 +2,22 @@
 
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, SparklesIcon } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
-import { Controller, type SubmitHandler, useForm } from "react-hook-form";
+import { useEffect, useRef, useState } from "react";
+import {
+  Controller,
+  type SubmitHandler,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
 import { createAnswer } from "@/lib/actions/answer.action";
+import { apiClient } from "@/lib/api-client";
 import { AnswerSchema } from "@/lib/validations";
 
 // The editor touches `window`, so it can only render in the browser
@@ -26,9 +32,16 @@ type AnswerFormValues = z.infer<typeof AnswerSchema>;
 
 interface AnswerFormProps {
   questionId: string;
+  // Sent to the AI so it knows what to answer
+  questionTitle: string;
+  questionContent: string;
 }
 
-const AnswerForm = ({ questionId }: AnswerFormProps) => {
+const AnswerForm = ({
+  questionId,
+  questionTitle,
+  questionContent,
+}: AnswerFormProps) => {
   const editorRef = useRef<MDXEditorMethods>(null);
   // Changing the key remounts the editor, which only reads `value` on mount
   const [editorKey, setEditorKey] = useState(0);
@@ -37,6 +50,72 @@ const AnswerForm = ({ questionId }: AnswerFormProps) => {
     resolver: standardSchemaResolver(AnswerSchema),
     defaultValues: { content: "" },
   });
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  // Cancels a running AI request when the user leaves the page
+  const aiRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => aiRequest.current?.abort(), []);
+
+  // With a draft, the AI improves it instead of writing from scratch
+  const content = useWatch({ control: form.control, name: "content" });
+  const hasDraft = content.trim() !== "";
+
+  // Puts new text in the form and remounts the editor to show it
+  const setContent = (content: string) => {
+    form.setValue("content", content, { shouldDirty: true });
+    form.clearErrors("content");
+    setEditorKey((key) => key + 1);
+  };
+
+  const generateAIAnswer = async () => {
+    const draft = form.getValues("content");
+    const controller = new AbortController();
+    aiRequest.current = controller;
+    setIsGenerating(true);
+
+    try {
+      const result = await apiClient.ai.getAnswer(
+        {
+          question: questionTitle,
+          content: questionContent,
+          userAnswer: draft,
+        },
+        { signal: controller.signal },
+      );
+
+      if (!result.success) {
+        toast.error("Couldn't generate an answer", {
+          description:
+            result.status === 401
+              ? "Your session has expired. Please sign in again."
+              : result.error.message,
+        });
+        return;
+      }
+
+      setContent(result.data);
+      toast.success(
+        draft.trim() ? "Answer improved with AI" : "AI answer added",
+        {
+          description: "Review it before posting.",
+          // Brings back the exact draft the AI started from
+          action: draft.trim()
+            ? { label: "Undo", onClick: () => setContent(draft) }
+            : undefined,
+          duration: 10_000,
+        },
+      );
+    } catch (error) {
+      // An abort means the user left the page: nothing to show
+      if (error instanceof Error && error.name === "AbortError") return;
+      toast.error("Couldn't generate an answer", {
+        description: "Something went wrong. Please try again.",
+      });
+    } finally {
+      if (aiRequest.current === controller) aiRequest.current = null;
+      setIsGenerating(false);
+    }
+  };
 
   const handleSubmit: SubmitHandler<AnswerFormValues> = async ({ content }) => {
     let result;
@@ -69,7 +148,9 @@ const AnswerForm = ({ questionId }: AnswerFormProps) => {
     }
   };
 
-  const isBusy = form.formState.isSubmitting;
+  const isPosting = form.formState.isSubmitting;
+  // One thing at a time: don't post while the AI rewrites the editor
+  const isBusy = isPosting || isGenerating;
 
   return (
     <section aria-labelledby="answer-form-heading">
@@ -80,7 +161,24 @@ const AnswerForm = ({ questionId }: AnswerFormProps) => {
         >
           Write your answer here
         </h2>
-        {/* TODO: add the "Generate AI Answer" button once AI answers are built */}
+        <Button
+          type="button"
+          onClick={generateAIAnswer}
+          disabled={isBusy}
+          className="btn light-border-2 text-primary-500! w-fit gap-1.5 rounded-md border px-4 py-2.5 shadow-none"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              {hasDraft ? "Improving..." : "Generating..."}
+            </>
+          ) : (
+            <>
+              <SparklesIcon className="size-4" aria-hidden />
+              {hasDraft ? "Improve with AI" : "Generate AI Answer"}
+            </>
+          )}
+        </Button>
       </div>
 
       <form onSubmit={form.handleSubmit(handleSubmit)} className="mt-6 w-full">
@@ -109,7 +207,7 @@ const AnswerForm = ({ questionId }: AnswerFormProps) => {
               disabled={isBusy}
               className="primary-gradient text-light-900! min-h-12 w-fit px-4 py-3"
             >
-              {isBusy ? (
+              {isPosting ? (
                 <>
                   <Loader2Icon className="size-4 animate-spin" aria-hidden />
                   Posting...

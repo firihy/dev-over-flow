@@ -105,7 +105,11 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
         {/* Only signed-in users can answer, so don't let anyone else type a
             long answer they can't post */}
         {session ? (
-          <AnswerForm questionId={_id} />
+          <AnswerForm
+            questionId={_id}
+            questionTitle={title}
+            questionContent={content}
+          />
         ) : (
           <p className="paragraph-regular text-dark400_light800">
             <Link
