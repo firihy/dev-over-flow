@@ -211,6 +211,11 @@ export const AnswerSchema = z.object({
   content: markdownBody(100, "Answer must be at least 100 characters long."),
 });
 
+// What createAnswer receives: the answer plus the question it belongs to
+export const AnswerServerSchema = AnswerSchema.extend({
+  questionId: objectIdSchema("Question ID"),
+});
+
 // Body of incrementViews: which question was opened
 export const IncrementViewsSchema = z.object({
   questionId: objectIdSchema("Question ID"),
