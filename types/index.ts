@@ -32,6 +32,18 @@ export interface Question {
   createdAt: string;
 }
 
+// An answer as the question page shows it. author is null when the user
+// was deleted: the answer stays, shown as "Deleted user".
+export interface Answer {
+  _id: string;
+  author: Author | null;
+  content: string;
+  upvotes: number;
+  downvotes: number;
+  // An ISO date string: it comes from the server as JSON
+  createdAt: string;
+}
+
 // ---- Responses returned by server actions and API routes ----
 
 export interface SuccessResponse<T = null> {
