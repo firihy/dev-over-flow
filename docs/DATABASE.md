@@ -202,6 +202,13 @@ erDiagram
   `QuestionViewTracker` calls it from the browser once per question per tab
   (`sessionStorage`), so a refresh doesn't add a view. It doesn't call
   `revalidatePath`: the page shows the count it loaded with.
+- **Posting an answer** (`createAnswer` in `lib/actions/answer.action.ts`)
+  runs in one transaction: `$inc` the question's `answers` (with
+  `timestamps: false`, like views), then create the answer. If the
+  question is gone the update finds nothing, and it's a 404 with nothing
+  saved. `$inc` instead of reading the count and saving it back means
+  answers posted at the same time all count. It then calls
+  `revalidatePath` on the question page, so the new count shows at once.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.

@@ -451,7 +451,10 @@ which loads the question, needs no session: questions are public.
 
 The question page itself is public, but its answer form is shown only with
 a session; signed-out visitors get a "Sign in to answer" link instead.
-Posting isn't wired up yet, so there's no server-side check to describe.
+Hiding the form is only for the user: `createAnswer` checks the session
+again (401 without one), because anyone can call a server action with a
+direct POST. The answer's author is always `session.user.id`, never a value
+from the request.
 
 ### Avatar and navigation
 
@@ -519,6 +522,7 @@ it expires (30 days by default).
 | `lib/auth/verify-credentials.ts`                      | Server-only. Checks an email/password login; returns the user or `null`.                                                                                                                                                     |
 | `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                                                                                             |
 | `lib/actions/question.action.ts`                      | `createQuestion` and `editQuestion` need a signed-in user (`authorize: true`). The author is `session.user.id`, and only the author can edit (403 otherwise). `getQuestion`, `getQuestions` and `incrementViews` are public. |
+| `lib/actions/answer.action.ts`                        | `createAnswer` needs a signed-in user (`authorize: true`); the author is `session.user.id`.                                                                                                                                  |
 | `lib/actions/tag.action.ts`                           | `getTags` and `getTagQuestions` are public (no `authorize`).                                                                                                                                                                 |
 | `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                                                                                                    |
 | `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                                                                                               |
