@@ -190,6 +190,14 @@ export const GetQuestionSchema = z.object({
   questionId: objectIdSchema("Question ID"),
 });
 
+// An answer's body. Trimmed first, so spaces and blank lines don't count.
+export const AnswerSchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(100, { message: "Answer must be at least 100 characters long." }),
+});
+
 // Body of incrementViews: which question was opened
 export const IncrementViewsSchema = z.object({
   questionId: objectIdSchema("Question ID"),
