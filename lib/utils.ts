@@ -45,3 +45,12 @@ export const getTimeStamp = (date: Date, now = new Date()) => {
 
   return relativeTimeFormat.format(Math.trunc(secondsDiff / seconds), unit);
 };
+
+const compactNumberFormat = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+// 999 -> "999", 1234 -> "1.2K", 999999 -> "1M", 2500000000 -> "2.5B"
+export const formatNumber = (number: number) =>
+  compactNumberFormat.format(number);

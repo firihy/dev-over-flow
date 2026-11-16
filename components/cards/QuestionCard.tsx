@@ -4,7 +4,7 @@ import TagCard from "@/components/cards/TagCard";
 import Metric from "@/components/Metric";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
-import { getTimeStamp } from "@/lib/utils";
+import { formatNumber, getTimeStamp } from "@/lib/utils";
 import type { Question } from "@/types";
 
 interface QuestionCardProps {
@@ -64,19 +64,19 @@ const QuestionCard = ({
         <div className="flex items-center gap-3 max-sm:flex-wrap max-sm:justify-start">
           <Metric
             imgUrl="/icons/like.svg"
-            value={upvotes}
+            value={formatNumber(upvotes)}
             title="Votes"
             textStyles="small-medium text-dark400_light800"
           />
           <Metric
             imgUrl="/icons/message.svg"
-            value={answers}
+            value={formatNumber(answers)}
             title="Answers"
             textStyles="small-medium text-dark400_light800"
           />
           <Metric
             imgUrl="/icons/eye.svg"
-            value={views}
+            value={formatNumber(views)}
             title="Views"
             textStyles="small-medium text-dark400_light800"
           />
