@@ -61,6 +61,22 @@ export const SignUpSchema = z.object({
   password: passwordSchema,
 });
 
+// The Markdown editor saves spaces at the start or end of a line as
+// character references (e.g. "&#x20;"), which .trim() can't remove. Turn
+// those back into spaces before measuring, so a body of only spaces is
+// empty. The saved text keeps them: they matter to Markdown.
+const WHITESPACE_REFS =
+  /&(?:#x0*(?:9|a|d|20|a0);|#0*(?:9|10|13|32|160);|nbsp;)/gi;
+const visibleLength = (markdown: string) =>
+  markdown.replace(WHITESPACE_REFS, " ").trim().length;
+
+// A Markdown body that must have at least `min` visible characters
+const markdownBody = (min: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .refine((value) => visibleLength(value) >= min, { message });
+
 export const AskQuestionSchema = z.object({
   title: z
     .string()
@@ -68,7 +84,7 @@ export const AskQuestionSchema = z.object({
     .min(5, { message: "Title must be at least 5 characters long." })
     .max(100, { message: "Title cannot exceed 100 characters." }),
 
-  content: z.string().trim().min(1, { message: "Body is required." }),
+  content: markdownBody(1, "Body is required."),
 
   tags: z
     .array(
@@ -192,10 +208,7 @@ export const GetQuestionSchema = z.object({
 
 // An answer's body. Trimmed first, so spaces and blank lines don't count.
 export const AnswerSchema = z.object({
-  content: z
-    .string()
-    .trim()
-    .min(100, { message: "Answer must be at least 100 characters long." }),
+  content: markdownBody(100, "Answer must be at least 100 characters long."),
 });
 
 // Body of incrementViews: which question was opened
