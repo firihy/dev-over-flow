@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import TagCard from "@/components/cards/TagCard";
 import Preview from "@/components/editor/Preview";
 import Metric from "@/components/Metric";
+import QuestionViewTracker from "@/components/questions/QuestionViewTracker";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
 import { getQuestion } from "@/lib/actions/question.action";
@@ -24,6 +25,8 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
 
   return (
     <>
+      <QuestionViewTracker questionId={id} />
+
       <div className="flex w-full items-center justify-between gap-4">
         {author ? (
           <div className="flex items-center gap-1.5">
