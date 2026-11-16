@@ -449,6 +449,10 @@ the question page. `editQuestion` repeats that check and answers 403
 (`ForbiddenError`) when the signed-in user isn't the author. `getQuestion`,
 which loads the question, needs no session: questions are public.
 
+The question page itself is public, but its answer form is shown only with
+a session; signed-out visitors get a "Sign in to answer" link instead.
+Posting isn't wired up yet, so there's no server-side check to describe.
+
 ### Avatar and navigation
 
 | Place                         | Signed out      | Signed in                                                    |
