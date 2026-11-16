@@ -506,6 +506,7 @@ it expires (30 days by default).
 | No route protection in the proxy (no `authorized` callback). Only `/ask-question` and `/questions/[id]/edit` check `auth()` themselves and redirect to `/sign-in`. | Every other page is reachable signed out.                                                                            | `proxy.ts`, `ask-question/page.tsx`, `questions/[id]/edit/page.tsx` |
 | `incrementViews` is a public server action with no rate limit.                                                                                                     | A script can inflate a question's view count. The once-per-tab guard only stops normal browsers from recounting.     | `question.action.ts`                                                |
 | `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`.                                                                    | Those routes are public.                                                                                             | `app/api/**`                                                        |
+| `/api/ai/answers` checks `auth()` (401 when signed out) but has no rate limit.                                                                                     | A signed-in user can spend our Groq tokens in a loop.                                                                | `app/api/ai/answers/route.ts`                                       |
 
 ---
 
@@ -549,7 +550,8 @@ it expires (30 days by default).
 
 Set in `.env.local` (see `.env.example`): `AUTH_SECRET`, `AUTH_TRUST_HOST`,
 `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_GOOGLE_ID`,
-`AUTH_GOOGLE_SECRET`, `MONGODB_URI`.
+`AUTH_GOOGLE_SECRET`, `MONGODB_URI`. `GROQ_API_KEY` isn't for auth: the
+signed-in-only AI answer route uses it.
 
 ### Keeping this doc in sync
 
