@@ -24,7 +24,7 @@ import ROUTES from "@/constants/routes";
 import {
   createQuestion,
   editQuestion,
-  type QuestionWithTags,
+  type QuestionDetails,
 } from "@/lib/actions/question.action";
 import { AskQuestionSchema } from "@/lib/validations";
 import type { Serialized } from "@/types";
@@ -59,7 +59,7 @@ const isFieldName = (name: string): name is (typeof FIELD_NAMES)[number] =>
 
 interface QuestionFormProps {
   // Given: edit this question. Missing: ask a new one.
-  question?: Serialized<QuestionWithTags>;
+  question?: Serialized<QuestionDetails>;
 }
 
 const QuestionForm = ({ question }: QuestionFormProps) => {

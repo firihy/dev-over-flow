@@ -23,7 +23,7 @@ const EditQuestion = async ({ params }: PageProps<"/questions/[id]/edit">) => {
   const question = result.data;
 
   // Only the author may edit; everyone else just sees the question
-  if (question.author !== session.user?.id) {
+  if (!question.author || question.author._id !== session.user?.id) {
     redirect(ROUTES.QUESTION(id));
   }
 

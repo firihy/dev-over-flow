@@ -12,6 +12,7 @@ import Question, {
 } from "@/database/question.model";
 import TagQuestion from "@/database/tag-question.model";
 import Tag, { type ITagDoc } from "@/database/tag.model";
+import type { IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import {
@@ -43,9 +44,11 @@ export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
 export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
 export type GetQuestionsInput = z.input<typeof QuestionsSearchParamsSchema>;
 
-// A question with its tags loaded (populated) instead of just their ids
-export type QuestionWithTags = Omit<IQuestionDoc, "tags"> & {
+// A question with its tags and author loaded (populated) instead of just
+// their ids. author is null when the user was deleted.
+export type QuestionDetails = Omit<IQuestionDoc, "tags" | "author"> & {
   tags: ITagDoc[];
+  author: Pick<IUserDoc, "_id" | "name" | "image"> | null;
 };
 
 // Same collation as the Tag name index: the lookup ignores case and uses
@@ -224,7 +227,7 @@ export async function editQuestion(
 // public, and this is also callable as a POST like every action here.
 export async function getQuestion(
   input: GetQuestionInput,
-): Promise<ActionResponse<Serialized<QuestionWithTags>>> {
+): Promise<ActionResponse<Serialized<QuestionDetails>>> {
   try {
     const { params } = await action({
       params: input,
@@ -233,15 +236,14 @@ export async function getQuestion(
 
     const question = await Question.findById(params.questionId)
       .populate<{ tags: ITagDoc[] }>("tags")
+      .populate<{ author: QuestionDetails["author"] }>("author", "name image")
       .lean();
     if (!question) throw new NotFoundError("Question");
 
     return {
       success: true,
       status: 200,
-      data: JSON.parse(
-        JSON.stringify(question),
-      ) as Serialized<QuestionWithTags>,
+      data: JSON.parse(JSON.stringify(question)) as Serialized<QuestionDetails>,
     };
   } catch (error) {
     return handleError(error);
