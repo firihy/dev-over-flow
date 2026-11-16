@@ -10,6 +10,8 @@ interface UserAvatarProps {
   name?: string | null;
   imageUrl?: string | null;
   className?: string;
+  // e.g. smaller initials in a small avatar
+  fallbackClassName?: string;
 }
 
 // "John  Doe" -> "JD". Array.from splits by character, so an emoji or
@@ -25,7 +27,13 @@ const getInitials = (name: string) =>
 
 // The user's picture, linking to their profile. Shows their initials when
 // there's no picture or it fails to load.
-const UserAvatar = ({ id, name, imageUrl, className }: UserAvatarProps) => {
+const UserAvatar = ({
+  id,
+  name,
+  imageUrl,
+  className,
+  fallbackClassName,
+}: UserAvatarProps) => {
   const displayName = name?.trim() || "User";
 
   return (
@@ -41,7 +49,12 @@ const UserAvatar = ({ id, name, imageUrl, className }: UserAvatarProps) => {
         {imageUrl && (
           <AvatarImage src={imageUrl} alt="" referrerPolicy="no-referrer" />
         )}
-        <AvatarFallback className="primary-gradient font-space-grotesk font-bold tracking-wider text-white">
+        <AvatarFallback
+          className={cn(
+            "primary-gradient font-space-grotesk font-bold tracking-wider text-white",
+            fallbackClassName,
+          )}
+        >
           {getInitials(displayName)}
         </AvatarFallback>
       </Avatar>

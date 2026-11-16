@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 
 interface MetricProps {
   imgUrl: string;
-  value: string | number;
-  title: ReactNode;
+  value: ReactNode;
+  // Optional: e.g. "asked 2 hours ago" says it all in the value
+  title?: ReactNode;
   textStyles: string;
   href?: string;
   imgStyles?: string;
@@ -34,7 +35,7 @@ const Metric = ({
 
       <p className={cn("flex items-center gap-1", textStyles)}>
         {value}
-        <span className="small-regular line-clamp-1">{title}</span>
+        {title && <span className="small-regular line-clamp-1">{title}</span>}
       </p>
     </>
   );
