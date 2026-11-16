@@ -4,13 +4,14 @@ import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import type { MDXEditorMethods } from "@mdxeditor/editor";
 import { Loader2Icon } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup } from "@/components/ui/field";
+import { createAnswer } from "@/lib/actions/answer.action";
 import { AnswerSchema } from "@/lib/validations";
 
 // The editor touches `window`, so it can only render in the browser
@@ -23,18 +24,49 @@ const Editor = dynamic(() => import("@/components/editor"), {
 
 type AnswerFormValues = z.infer<typeof AnswerSchema>;
 
-const AnswerForm = () => {
+interface AnswerFormProps {
+  questionId: string;
+}
+
+const AnswerForm = ({ questionId }: AnswerFormProps) => {
   const editorRef = useRef<MDXEditorMethods>(null);
+  // Changing the key remounts the editor, which only reads `value` on mount
+  const [editorKey, setEditorKey] = useState(0);
 
   const form = useForm<AnswerFormValues>({
     resolver: standardSchemaResolver(AnswerSchema),
     defaultValues: { content: "" },
   });
 
-  // TODO: post the answer with a createAnswer action once answers can be
-  // saved
-  const handleSubmit: SubmitHandler<AnswerFormValues> = async () => {
-    toast.info("Posting answers is coming soon");
+  const handleSubmit: SubmitHandler<AnswerFormValues> = async ({ content }) => {
+    let result;
+    try {
+      result = await createAnswer({ questionId, content });
+    } catch {
+      // The action couldn't be reached (offline, server down...)
+      toast.error("Something went wrong", {
+        description: "Please check your connection and try again.",
+      });
+      return;
+    }
+
+    if (result.success) {
+      form.reset();
+      setEditorKey((key) => key + 1);
+      toast.success("Answer posted");
+      return;
+    }
+
+    // A content error goes under the editor; anything else (e.g. 401 when
+    // the session expired, 404 when the question was deleted) is a toast
+    const contentError = result.error.details?.content?.[0];
+    if (contentError) {
+      form.setError("content", { message: contentError });
+    } else {
+      toast.error("Couldn't post your answer", {
+        description: result.error.message,
+      });
+    }
   };
 
   const isBusy = form.formState.isSubmitting;
@@ -59,6 +91,7 @@ const AnswerForm = () => {
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid} className="gap-3">
                 <Editor
+                  key={editorKey}
                   value={field.value}
                   onChange={field.onChange}
                   editorRef={editorRef}

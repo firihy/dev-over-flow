@@ -25,7 +25,7 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
     if (result.status === 400 || result.status === 404) notFound();
     throw new Error(result.error.message);
   }
-  const { title, content, tags, author, createdAt, answers, views } =
+  const { _id, title, content, tags, author, createdAt, answers, views } =
     result.data;
 
   return (
@@ -98,7 +98,7 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
         {/* Only signed-in users can answer, so don't let anyone else type a
             long answer they can't post */}
         {session ? (
-          <AnswerForm />
+          <AnswerForm questionId={_id} />
         ) : (
           <p className="paragraph-regular text-dark400_light800">
             <Link
