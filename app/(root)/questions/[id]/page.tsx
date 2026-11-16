@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { auth } from "@/auth";
+import AllAnswers from "@/components/answers/AllAnswers";
 import TagCard from "@/components/cards/TagCard";
 import Preview from "@/components/editor/Preview";
 import AnswerForm from "@/components/forms/AnswerForm";
@@ -9,14 +10,18 @@ import Metric from "@/components/Metric";
 import QuestionViewTracker from "@/components/questions/QuestionViewTracker";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
+import { getAnswers } from "@/lib/actions/answer.action";
 import { getQuestion } from "@/lib/actions/question.action";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
 
 const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
   const { id } = await params;
 
-  const [result, session] = await Promise.all([
+  // All at once. getAnswers doesn't need the question: an unknown or
+  // malformed id gets notFound() below before its result is used.
+  const [result, answersResult, session] = await Promise.all([
     getQuestion({ questionId: id }),
+    getAnswers({ questionId: id, page: 1, pageSize: 10, filter: "latest" }),
     auth(),
   ]);
   if (!result.success) {
@@ -93,6 +98,8 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
           <TagCard key={tag._id} _id={tag._id} name={tag.name} compact />
         ))}
       </div>
+
+      <AllAnswers result={answersResult} totalAnswers={answers} />
 
       <div className="my-5">
         {/* Only signed-in users can answer, so don't let anyone else type a

@@ -67,3 +67,9 @@ export const EMPTY_TAG_QUESTIONS_SEARCH: EmptyState = {
   title: "No Matching Questions",
   message: "Try other words, or clear the search.",
 };
+
+// A question nobody has answered yet
+export const EMPTY_ANSWERS: EmptyState = {
+  title: "No Answers Yet",
+  message: "Be the first to answer this question.",
+};
