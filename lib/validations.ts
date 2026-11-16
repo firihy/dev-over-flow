@@ -256,3 +256,18 @@ export const GetAnswersSchema = PaginatedSearchParamsSchema.omit({
   questionId: objectIdSchema("Question ID"),
   filter: z.enum(ANSWER_FILTERS.map((filter) => filter.value)).optional(),
 });
+
+// Body of POST /api/ai/answers: the question's title and body, checked
+// with the same rules as when it was asked. The body is capped so one
+// request can't send a huge (and expensive) prompt to the AI model.
+export const AI_ANSWER_MAX_CONTENT = 20_000;
+
+export const AIAnswerSchema = z.object({
+  question: AskQuestionSchema.shape.title,
+  content: markdownBody(1, "Question body is required.").refine(
+    (value) => value.length <= AI_ANSWER_MAX_CONTENT,
+    {
+      message: `Question body cannot exceed ${AI_ANSWER_MAX_CONTENT} characters.`,
+    },
+  ),
+});
