@@ -14,8 +14,10 @@
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.84",
     "@hookform/resolvers": "^7.0.1",
     "@mdxeditor/editor": "^4.5.0",
+    "ai": "^7.0.173",
     "bcryptjs": "^3.0.3",
     "bright": "^1.0.0",
     "class-variance-authority": "^0.7.1",
