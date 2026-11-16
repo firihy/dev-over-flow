@@ -209,6 +209,15 @@ erDiagram
   saved. `$inc` instead of reading the count and saving it back means
   answers posted at the same time all count. It then calls
   `revalidatePath` on the question page, so the new count shows at once.
+- **Listing answers** (`getAnswers` in `lib/actions/answer.action.ts`)
+  loads a page of `{ question: id }` (the `question` index) with the
+  author's `name` and `image`. It sorts by `latest` (the default),
+  `oldest` or `popular` (`upvotes`), with `_id` last, and fetches one
+  extra answer for `isNext`. It doesn't count: the page shows the
+  question's stored `answers`. Unlike questions, an answer whose author
+  was deleted stays in the list, with `author: null`, shown as "Deleted
+  user". An unknown question just has no answers; the page has already
+  called `notFound()` from `getQuestion`.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
