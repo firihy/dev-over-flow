@@ -25,3 +25,12 @@ export type TagFilterValue = (typeof TAG_FILTERS)[number]["value"];
 
 export const isTagFilter = (value: string): value is TagFilterValue =>
   TAG_FILTERS.some((filter) => filter.value === value);
+
+// The sort options for a question's answers, checked by GetAnswersSchema
+export const ANSWER_FILTERS = [
+  { name: "Newest", value: "latest" },
+  { name: "Oldest", value: "oldest" },
+  { name: "Popular", value: "popular" },
+] as const;
+
+export type AnswerFilterValue = (typeof ANSWER_FILTERS)[number]["value"];

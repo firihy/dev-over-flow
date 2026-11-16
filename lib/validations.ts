@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
-import { HOME_FILTERS, TAG_FILTERS } from "@/constants/filters";
+import { ANSWER_FILTERS, HOME_FILTERS, TAG_FILTERS } from "@/constants/filters";
 
 // Rules for a new password, shared by sign-up and accounts
 const passwordSchema = z
@@ -247,4 +247,12 @@ export const TagsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
 // One tag's questions on /tags/[id]: newest first, so no filter
 export const GetTagQuestionsSchema = PaginatedSearchParamsSchema.extend({
   tagId: objectIdSchema("Tag ID"),
+});
+
+// One page of a question's answers. No text search, so no `query`.
+export const GetAnswersSchema = PaginatedSearchParamsSchema.omit({
+  query: true,
+}).extend({
+  questionId: objectIdSchema("Question ID"),
+  filter: z.enum(ANSWER_FILTERS.map((filter) => filter.value)).optional(),
 });
