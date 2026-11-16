@@ -1,4 +1,4 @@
-import { groq } from "@ai-sdk/groq";
+import { groq, type GroqLanguageModelOptions } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { NextResponse } from "next/server";
 
@@ -9,7 +9,9 @@ import { UnauthorizedError } from "@/lib/http-errors";
 import { AIAnswerSchema } from "@/lib/validations";
 import type { APIResponse } from "@/types";
 
-const MODEL = "llama-3.3-70b-versatile";
+// A reasoning model: it "thinks" before it writes, and those thinking
+// tokens count toward maxOutputTokens, so effort is kept low
+const MODEL = "openai/gpt-oss-120b";
 
 // The question is written by users, so it could contain text like
 // "ignore your instructions". It goes inside <question> tags and the
@@ -34,7 +36,10 @@ export async function POST(request: Request): Promise<APIResponse<string>> {
       model: groq(MODEL),
       system: SYSTEM_PROMPT,
       prompt: `<question>\n<title>${question}</title>\n<body>\n${content}\n</body>\n</question>`,
-      maxOutputTokens: 2000,
+      maxOutputTokens: 4000,
+      providerOptions: {
+        groq: { reasoningEffort: "low" } satisfies GroqLanguageModelOptions,
+      },
       // Stop the model call (and its cost) if the client gives up
       abortSignal: request.signal,
     });
