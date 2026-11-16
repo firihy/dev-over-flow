@@ -22,12 +22,16 @@ const components: Components = {
       {children}
     </Code>
   ),
-  // Links are written by users: don't pass them our ranking or our tab
-  a: ({ href, title, children }) => (
-    <a href={href} title={title} rel="nofollow ugc noopener noreferrer">
-      {children}
-    </a>
-  ),
+  // Links are written by users: don't pass them our ranking or our tab.
+  // A link whose URL was dropped (javascript:) is just its text.
+  a: ({ href, title, children }) =>
+    href ? (
+      <a href={href} title={title} rel="nofollow ugc noopener noreferrer">
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    ),
 };
 
 // Renders a question or answer body. It's plain Markdown (what the editor
