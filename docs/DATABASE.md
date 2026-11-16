@@ -191,6 +191,17 @@ erDiagram
   `/tags/[id]` page turns into `notFound()`. Both lists build their cards
   with `toQuestionCards` in `lib/questions.ts`, which leaves out questions
   whose author was deleted, so a page can show fewer than `pageSize`.
+- **One question** (`getQuestion`) populates its tags and the author's
+  `name` and `image` only. A deleted author populates to `null`, which the
+  page shows as "Deleted user". A malformed ID is a 400 and an unknown one a
+  404; the `/questions/[id]` page turns both into `notFound()`.
+- **Counting views** (`incrementViews`) is one
+  `findByIdAndUpdate(id, { $inc: { views: 1 } }, { timestamps: false })`.
+  `$inc` runs in the database in one step, so views at the same moment all
+  count, and `timestamps: false` keeps `updatedAt` for real edits.
+  `QuestionViewTracker` calls it from the browser once per question per tab
+  (`sessionStorage`), so a refresh doesn't add a view. It doesn't call
+  `revalidatePath`: the page shows the count it loaded with.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
