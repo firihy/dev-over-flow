@@ -73,3 +73,16 @@ export const EMPTY_ANSWERS: EmptyState = {
   title: "No Answers Yet",
   message: "Be the first to answer this question.",
 };
+
+// Nobody has signed up yet
+export const EMPTY_USERS: EmptyState = {
+  title: "No Users Yet",
+  message: "Nobody has joined DevFlow yet. More developers are coming soon!",
+};
+
+// A search or a later page: users exist, none match
+export const EMPTY_USERS_SEARCH: EmptyState = {
+  title: "No Matching Users",
+  message: "Try another name or username, or clear the search.",
+  button: { text: "Show All Users", href: ROUTES.COMMUNITY },
+};
