@@ -2,11 +2,30 @@ import Link from "next/link";
 
 import Preview from "@/components/editor/Preview";
 import UserAvatar from "@/components/UserAvatar";
+import Votes from "@/components/votes/Votes";
 import ROUTES from "@/constants/routes";
+import type { VoteType } from "@/constants/votes";
 import { getTimeStamp } from "@/lib/utils";
 import type { Answer } from "@/types";
 
-const AnswerCard = ({ _id, author, content, createdAt }: Answer) => {
+interface AnswerCardProps extends Answer {
+  // The signed-in user's vote on this answer (null: none)
+  userVote: VoteType | null;
+  isSignedIn: boolean;
+  isAuthor: boolean;
+}
+
+const AnswerCard = ({
+  _id,
+  author,
+  content,
+  createdAt,
+  upvotes,
+  downvotes,
+  userVote,
+  isSignedIn,
+  isAuthor,
+}: AnswerCardProps) => {
   const answeredAt = (
     <time dateTime={createdAt}>
       <span className="max-sm:hidden"> • </span>
@@ -49,7 +68,17 @@ const AnswerCard = ({ _id, author, content, createdAt }: Answer) => {
           </div>
         )}
 
-        {/* TODO: Add voting once votes are built */}
+        <div className="flex justify-end">
+          <Votes
+            targetId={_id}
+            targetType="answer"
+            upvotes={upvotes}
+            downvotes={downvotes}
+            userVote={userVote}
+            isSignedIn={isSignedIn}
+            isAuthor={isAuthor}
+          />
+        </div>
       </div>
 
       <Preview content={content} />

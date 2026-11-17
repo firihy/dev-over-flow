@@ -9,9 +9,11 @@ import AnswerForm from "@/components/forms/AnswerForm";
 import Metric from "@/components/Metric";
 import QuestionViewTracker from "@/components/questions/QuestionViewTracker";
 import UserAvatar from "@/components/UserAvatar";
+import Votes from "@/components/votes/Votes";
 import ROUTES from "@/constants/routes";
 import { getAnswers } from "@/lib/actions/answer.action";
 import { getQuestion } from "@/lib/actions/question.action";
+import { getUserVotes } from "@/lib/actions/vote.action";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
 
 const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
@@ -30,8 +32,29 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
     if (result.status === 400 || result.status === 404) notFound();
     throw new Error(result.error.message);
   }
-  const { _id, title, content, tags, author, createdAt, answers, views } =
-    result.data;
+  const {
+    _id,
+    title,
+    content,
+    tags,
+    author,
+    createdAt,
+    answers,
+    views,
+    upvotes,
+    downvotes,
+  } = result.data;
+
+  // The signed-in user's votes on the question and the answers shown, in
+  // one query. If it fails, the arrows just show no vote.
+  const userId = session?.user?.id;
+  const shownAnswers = answersResult.success ? answersResult.data.answers : [];
+  const votesResult = userId
+    ? await getUserVotes({
+        targetIds: [_id, ...shownAnswers.map((answer) => answer._id)],
+      })
+    : null;
+  const userVotes = votesResult?.success ? votesResult.data : {};
 
   return (
     <>
@@ -60,7 +83,15 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
           </p>
         )}
 
-        {/* TODO: Add voting once votes are built */}
+        <Votes
+          targetId={_id}
+          targetType="question"
+          upvotes={upvotes}
+          downvotes={downvotes}
+          userVote={userVotes[_id] ?? null}
+          isSignedIn={!!userId}
+          isAuthor={!!userId && author?._id === userId}
+        />
       </div>
 
       <h1 className="h2-semibold text-dark200_light900 mt-3.5 w-full">
@@ -99,7 +130,12 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
         ))}
       </div>
 
-      <AllAnswers result={answersResult} totalAnswers={answers} />
+      <AllAnswers
+        result={answersResult}
+        totalAnswers={answers}
+        userId={userId}
+        userVotes={userVotes}
+      />
 
       <div className="my-5">
         {/* Only signed-in users can answer, so don't let anyone else type a
