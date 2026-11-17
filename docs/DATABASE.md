@@ -184,6 +184,14 @@ erDiagram
   collation so `name` sorts ignoring case ("angular" before "React"). The
   shared paging fields are `PaginatedSearchParamsSchema`; each list adds its
   own `filter` (`QuestionsSearchParamsSchema`, `TagsSearchParamsSchema`).
+- **Listing users** (`getUsers` in `lib/actions/user.action.ts`) for
+  `/community` works the same way: one extra document instead of a count and
+  `_id` last in every sort. It sorts by `newest` (the default), `oldest` or
+  `popular` (reputation). Most users have reputation 0, so `_id` is what
+  keeps them in a fixed order across pages. It returns only `name`,
+  `username`, `image` and `reputation` (`UserListItem`), never the email, and
+  the escaped search matches `name` and `username` only: searching emails
+  would let anyone check whether an address has an account.
 - **One tag's questions** (`getTagQuestions` in `lib/actions/tag.action.ts`)
   loads the tag and a page of questions with `tags: tagId` (the `tags`
   index), newest first with `_id` last. It searches titles and content like
