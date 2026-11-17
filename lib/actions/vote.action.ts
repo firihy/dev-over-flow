@@ -8,6 +8,7 @@ import type { ClientSession, Types } from "mongoose";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
+import { auth } from "@/auth";
 import ROUTES from "@/constants/routes";
 import type { VoteTarget, VoteType } from "@/constants/votes";
 import Answer from "@/database/answer.model";
@@ -21,10 +22,11 @@ import {
   UnauthorizedError,
 } from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
-import { CreateVoteSchema } from "@/lib/validations";
+import { CreateVoteSchema, GetUserVotesSchema } from "@/lib/validations";
 import type { ActionResponse, VoteResult } from "@/types";
 
 export type CreateVoteInput = z.input<typeof CreateVoteSchema>;
+export type GetUserVotesInput = z.input<typeof GetUserVotesSchema>;
 
 const COUNT_FIELD = {
   upvote: "upvotes",
@@ -166,6 +168,40 @@ export async function createVote(
     revalidatePath(ROUTES.QUESTION(questionId));
 
     return { success: true, status: 200, data: result };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// The signed-in user's votes on the given questions and answers, as
+// { [id]: "upvote" | "downvote" }. Items without a vote are left out.
+// One query for a whole page (the question and its answers). Signed-out
+// users simply have no votes: that's not an error.
+export async function getUserVotes(
+  input: GetUserVotesInput,
+): Promise<ActionResponse<Record<string, VoteType>>> {
+  try {
+    const { params } = await action({
+      params: input,
+      schema: GetUserVotesSchema,
+    });
+
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId || params.targetIds.length === 0) {
+      return { success: true, status: 200, data: {} };
+    }
+
+    // Uses the { author, actionId, actionTarget } index
+    const votes = await Vote.find(
+      { author: userId, actionId: { $in: params.targetIds } },
+      { actionId: 1, voteType: 1 },
+    ).lean();
+
+    const data: Record<string, VoteType> = {};
+    for (const vote of votes) data[vote.actionId.toString()] = vote.voteType;
+
+    return { success: true, status: 200, data };
   } catch (error) {
     return handleError(error);
   }
