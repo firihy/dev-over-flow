@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
 import { ANSWER_FILTERS, HOME_FILTERS, TAG_FILTERS } from "@/constants/filters";
+import { VOTE_TARGETS, VOTE_TYPES } from "@/constants/votes";
 
 // Rules for a new password, shared by sign-up and accounts
 const passwordSchema = z
@@ -282,4 +283,24 @@ export const AIAnswerSchema = z.object({
     .transform((value) =>
       value && visibleLength(value) > 0 ? value : undefined,
     ),
+});
+
+// Body of createVote: what is voted on and which way. Voting the same way
+// again removes the vote; voting the other way switches it.
+export const CreateVoteSchema = z.object({
+  targetId: objectIdSchema("Target ID"),
+  targetType: z.enum(VOTE_TARGETS, {
+    error: `Target type must be one of: ${VOTE_TARGETS.join(", ")}.`,
+  }),
+  voteType: z.enum(VOTE_TYPES, {
+    error: `Vote type must be one of: ${VOTE_TYPES.join(", ")}.`,
+  }),
+});
+
+// Body of getUserVotes: the question and answers shown on one page.
+// Capped like page sizes, so one call can't ask about everything.
+export const GetUserVotesSchema = z.object({
+  targetIds: z
+    .array(objectIdSchema("Target ID"))
+    .max(MAX_PAGE_SIZE + 1, { message: "Too many targets." }),
 });

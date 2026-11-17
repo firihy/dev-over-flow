@@ -1,12 +1,12 @@
 import { type Model, model, models, Schema, Types } from "mongoose";
 
+import {
+  VOTE_TARGETS,
+  VOTE_TYPES,
+  type VoteTarget,
+  type VoteType,
+} from "@/constants/votes";
 import type { SavedDoc } from "@/database/types";
-
-export const VOTE_TARGETS = ["question", "answer"] as const;
-export type VoteTarget = (typeof VOTE_TARGETS)[number];
-
-export const VOTE_TYPES = ["upvote", "downvote"] as const;
-export type VoteType = (typeof VOTE_TYPES)[number];
 
 export interface IVote {
   author: Types.ObjectId;
