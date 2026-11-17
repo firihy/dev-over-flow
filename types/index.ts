@@ -1,6 +1,7 @@
 import type { Types } from "mongoose";
 import type { NextResponse } from "next/server";
 
+import type { VoteType } from "@/constants/votes";
 import type { FieldErrors } from "@/lib/http-errors";
 
 export interface Tag {
@@ -42,6 +43,14 @@ export interface Answer {
   downvotes: number;
   // An ISO date string: it comes from the server as JSON
   createdAt: string;
+}
+
+// A question's or answer's counts after a vote, and the signed-in user's
+// vote on it (null: not voted)
+export interface VoteResult {
+  upvotes: number;
+  downvotes: number;
+  userVote: VoteType | null;
 }
 
 // ---- Responses returned by server actions and API routes ----
