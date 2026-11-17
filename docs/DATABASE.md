@@ -218,6 +218,23 @@ erDiagram
   was deleted stays in the list, with `author: null`, shown as "Deleted
   user". An unknown question just has no answers; the page has already
   called `notFound()` from `getQuestion`.
+- **Voting** (`createVote` in `lib/actions/vote.action.ts`) runs in one
+  transaction: load the question or answer (404 if it's gone, 403 if the
+  voter wrote it), find the user's `Vote` by `author` + `actionId` +
+  `actionTarget`, then create it (`+1`), delete it when it's the same way
+  again (`-1`), or switch it (`-1` on the old way and `+1` on the new, in one
+  `$inc`). The counts change with `timestamps: false`, like views. A `-1`
+  only happens when the user's vote exists, so it never takes a count the
+  vote didn't add, and no `$gt: 0` guard is needed. Two clicks at once hit the
+  unique index and a write conflict; `connection.transaction()` retries, so
+  each click still toggles once. The count helper isn't exported: in a
+  `"use server"` file it would be a public endpoint that changes any count.
+  It then revalidates the question page (an answer's vote revalidates its
+  question).
+- **The user's votes on a page** (`getUserVotes`) is one
+  `Vote.find({ author, actionId: { $in: ids } })` for the question and the
+  answers shown (at most 51 ids), using the vote index, which starts with
+  `author`. Signed out, it returns no votes without a query.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.

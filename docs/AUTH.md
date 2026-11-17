@@ -456,6 +456,13 @@ again (401 without one), because anyone can call a server action with a
 direct POST. The answer's author is always `session.user.id`, never a value
 from the request.
 
+The vote buttons are shown to everyone. A signed-out click only shows a
+"Sign in to vote" toast, and the author's own buttons are disabled. Again
+this is only for the user: `createVote` checks the session (401) and the
+author (403, "You can't vote on your own question/answer"), and the voter
+is always `session.user.id`. `getUserVotes` reads the session itself and
+returns no votes when signed out, so the page needs no special case.
+
 ### Avatar and navigation
 
 | Place                         | Signed out      | Signed in                                                    |
@@ -507,6 +514,7 @@ it expires (30 days by default).
 | `incrementViews` is a public server action with no rate limit.                                                                                                     | A script can inflate a question's view count. The once-per-tab guard only stops normal browsers from recounting.     | `question.action.ts`                                                |
 | `/api/*` is excluded from the proxy, and `/api/users` and `/api/accounts` don't check `auth()`.                                                                    | Those routes are public.                                                                                             | `app/api/**`                                                        |
 | `/api/ai/answers` checks `auth()` (401 when signed out) but has no rate limit.                                                                                     | A signed-in user can spend our Groq tokens in a loop.                                                                | `app/api/ai/answers/route.ts`                                       |
+| `createVote` has no rate limit.                                                                                                                                    | A signed-in user can toggle a vote in a loop. The counts stay correct, but each toggle is a transaction.             | `vote.action.ts`                                                    |
 
 ---
 
@@ -524,6 +532,7 @@ it expires (30 days by default).
 | `lib/actions/auth.action.ts`                          | Server actions: `signUpWithCredentials`, `signInWithCredentials`, `signOutUser`.                                                                                                                                             |
 | `lib/actions/question.action.ts`                      | `createQuestion` and `editQuestion` need a signed-in user (`authorize: true`). The author is `session.user.id`, and only the author can edit (403 otherwise). `getQuestion`, `getQuestions` and `incrementViews` are public. |
 | `lib/actions/answer.action.ts`                        | `createAnswer` needs a signed-in user (`authorize: true`); the author is `session.user.id`.                                                                                                                                  |
+| `lib/actions/vote.action.ts`                          | `createVote` needs a signed-in user (`authorize: true`) who isn't the author (403). `getUserVotes` is public and returns no votes when signed out.                                                                           |
 | `lib/actions/tag.action.ts`                           | `getTags` and `getTagQuestions` are public (no `authorize`).                                                                                                                                                                 |
 | `lib/password.ts`                                     | `hashPassword` (bcrypt, cost 12) and `verifyPassword`. The only file that touches bcrypt.                                                                                                                                    |
 | `lib/validations.ts`                                  | `SignInSchema`, `SignUpSchema`, `SignInWithOAuthSchema`, shared `emailSchema`.                                                                                                                                               |
