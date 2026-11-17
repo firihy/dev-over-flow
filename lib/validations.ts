@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
-import { ANSWER_FILTERS, HOME_FILTERS, TAG_FILTERS } from "@/constants/filters";
+import {
+  ANSWER_FILTERS,
+  HOME_FILTERS,
+  TAG_FILTERS,
+  USER_FILTERS,
+} from "@/constants/filters";
 import { VOTE_TARGETS, VOTE_TYPES } from "@/constants/votes";
 
 // Rules for a new password, shared by sign-up and accounts
@@ -243,6 +248,11 @@ export const QuestionsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
 // The tags page
 export const TagsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
   filter: z.enum(TAG_FILTERS.map((filter) => filter.value)).optional(),
+});
+
+// The users list on /community
+export const UsersSearchParamsSchema = PaginatedSearchParamsSchema.extend({
+  filter: z.enum(USER_FILTERS.map((filter) => filter.value)).optional(),
 });
 
 // One tag's questions on /tags/[id]: newest first, so no filter

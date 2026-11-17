@@ -21,6 +21,16 @@ export interface Author {
   image?: string;
 }
 
+// A user in the community list. Only what's shown publicly: never the
+// email, which would let anyone collect every user's address.
+export interface UserListItem {
+  _id: string;
+  name: string;
+  username: string;
+  image?: string;
+  reputation: number;
+}
+
 export interface Question {
   _id: string;
   title: string;

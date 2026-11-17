@@ -34,3 +34,16 @@ export const ANSWER_FILTERS = [
 ] as const;
 
 export type AnswerFilterValue = (typeof ANSWER_FILTERS)[number]["value"];
+
+// The sort options for the users list (?filter=popular on /community),
+// checked by UsersSearchParamsSchema. Popular means highest reputation.
+export const USER_FILTERS = [
+  { name: "Newest", value: "newest" },
+  { name: "Oldest", value: "oldest" },
+  { name: "Popular", value: "popular" },
+] as const;
+
+export type UserFilterValue = (typeof USER_FILTERS)[number]["value"];
+
+export const isUserFilter = (value: string): value is UserFilterValue =>
+  USER_FILTERS.some((filter) => filter.value === value);
