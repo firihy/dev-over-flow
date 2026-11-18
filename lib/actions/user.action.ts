@@ -12,12 +12,27 @@ import User, { type IUser, type IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import { NotFoundError } from "@/lib/http-errors";
+import {
+  CARD_POPULATE,
+  type ListedQuestion,
+  toQuestionCards,
+} from "@/lib/questions";
 import { escapeRegex } from "@/lib/regex";
-import { GetUserSchema, UsersSearchParamsSchema } from "@/lib/validations";
-import type { ActionResponse, UserListItem, UserProfile } from "@/types";
+import {
+  GetUserPostsSchema,
+  GetUserSchema,
+  UsersSearchParamsSchema,
+} from "@/lib/validations";
+import type {
+  ActionResponse,
+  Question as QuestionCardData,
+  UserListItem,
+  UserProfile,
+} from "@/types";
 
 export type GetUsersInput = z.input<typeof UsersSearchParamsSchema>;
 export type GetUserInput = z.input<typeof GetUserSchema>;
+export type GetUserPostsInput = z.input<typeof GetUserPostsSchema>;
 
 type UserFields = Pick<
   IUserDoc,
@@ -135,6 +150,41 @@ export async function getUser(input: GetUserInput): Promise<
         },
         totalQuestions,
         totalAnswers,
+      },
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// One page of a user's questions for their profile's "Top Posts": most
+// upvoted first, then newest. _id last so ties keep a fixed order between
+// pages. Public: no sign-in needed. An unknown user just has none; the
+// page checks the user itself.
+export async function getUserQuestions(
+  input: GetUserPostsInput,
+): Promise<ActionResponse<{ questions: QuestionCardData[]; isNext: boolean }>> {
+  try {
+    const { params } = await action({
+      params: input,
+      schema: GetUserPostsSchema,
+    });
+    const { userId, page, pageSize } = params;
+
+    // One extra: if it comes back, there's a next page
+    const docs = await Question.find({ author: userId })
+      .sort({ upvotes: -1, createdAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize + 1)
+      .populate(CARD_POPULATE)
+      .lean<ListedQuestion[]>();
+
+    return {
+      success: true,
+      status: 200,
+      data: {
+        questions: toQuestionCards(docs.slice(0, pageSize)),
+        isNext: docs.length > pageSize,
       },
     };
   } catch (error) {

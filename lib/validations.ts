@@ -331,3 +331,11 @@ export const CollectionBaseSchema = z.object({
 export const GetUserSchema = z.object({
   userId: objectIdSchema("User ID"),
 });
+
+// One page of a user's questions or answers on their profile. No text
+// search, so no `query`.
+export const GetUserPostsSchema = PaginatedSearchParamsSchema.omit({
+  query: true,
+}).extend({
+  userId: objectIdSchema("User ID"),
+});
