@@ -11,21 +11,29 @@ import QuestionViewTracker from "@/components/questions/QuestionViewTracker";
 import SaveQuestion from "@/components/questions/SaveQuestion";
 import UserAvatar from "@/components/UserAvatar";
 import Votes from "@/components/votes/Votes";
+import { isAnswerFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { getAnswers } from "@/lib/actions/answer.action";
 import { hasSavedQuestion } from "@/lib/actions/collection.action";
 import { getQuestion } from "@/lib/actions/question.action";
 import { getUserVotes } from "@/lib/actions/vote.action";
+import { getFirstParam } from "@/lib/url";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
 
-const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
+const QuestionDetails = async ({
+  params,
+  searchParams,
+}: PageProps<"/questions/[id]">) => {
   const { id } = await params;
+  const filterValue = getFirstParam((await searchParams).filter);
+  // An unknown ?filter= falls back to newest
+  const answerFilter = isAnswerFilter(filterValue) ? filterValue : undefined;
 
   // All at once. getAnswers doesn't need the question: an unknown or
   // malformed id gets notFound() below before its result is used.
   const [result, answersResult, session] = await Promise.all([
     getQuestion({ questionId: id }),
-    getAnswers({ questionId: id, page: 1, pageSize: 10, filter: "latest" }),
+    getAnswers({ questionId: id, page: 1, pageSize: 10, filter: answerFilter }),
     auth(),
   ]);
   if (!result.success) {

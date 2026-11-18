@@ -29,7 +29,8 @@ export type TagFilterValue = (typeof TAG_FILTERS)[number]["value"];
 export const isTagFilter = (value: string): value is TagFilterValue =>
   TAG_FILTERS.some((filter) => filter.value === value);
 
-// The sort options for a question's answers, checked by GetAnswersSchema
+// The sort options for a question's answers (?filter=popular on
+// /questions/[id]), checked by GetAnswersSchema
 export const ANSWER_FILTERS = [
   { name: "Newest", value: "latest" },
   { name: "Oldest", value: "oldest" },
@@ -37,6 +38,9 @@ export const ANSWER_FILTERS = [
 ] as const;
 
 export type AnswerFilterValue = (typeof ANSWER_FILTERS)[number]["value"];
+
+export const isAnswerFilter = (value: string): value is AnswerFilterValue =>
+  ANSWER_FILTERS.some((filter) => filter.value === value);
 
 // The sort options for the users list (?filter=popular on /community),
 // checked by UsersSearchParamsSchema. Popular means highest reputation.
