@@ -314,3 +314,9 @@ export const GetUserVotesSchema = z.object({
     .array(objectIdSchema("Target ID"))
     .max(MAX_PAGE_SIZE + 1, { message: "Too many targets." }),
 });
+
+// Body of toggleSaveQuestion and hasSavedQuestion: the question to save,
+// unsave or check, for the signed-in user
+export const CollectionBaseSchema = z.object({
+  questionId: objectIdSchema("Question ID"),
+});
