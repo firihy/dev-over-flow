@@ -47,3 +47,21 @@ export type UserFilterValue = (typeof USER_FILTERS)[number]["value"];
 
 export const isUserFilter = (value: string): value is UserFilterValue =>
   USER_FILTERS.some((filter) => filter.value === value);
+
+// The sort options for saved questions (?filter=oldest on /collection),
+// checked by CollectionSearchParamsSchema. Recent and Oldest are by when
+// the question was saved, not when it was asked.
+export const COLLECTION_FILTERS = [
+  { name: "Most Recent", value: "mostrecent" },
+  { name: "Oldest", value: "oldest" },
+  { name: "Most Voted", value: "mostvoted" },
+  { name: "Most Answered", value: "mostanswered" },
+] as const;
+
+export type CollectionFilterValue =
+  (typeof COLLECTION_FILTERS)[number]["value"];
+
+export const isCollectionFilter = (
+  value: string,
+): value is CollectionFilterValue =>
+  COLLECTION_FILTERS.some((filter) => filter.value === value);

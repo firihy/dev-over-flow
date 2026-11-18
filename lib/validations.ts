@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
 import {
   ANSWER_FILTERS,
+  COLLECTION_FILTERS,
   HOME_FILTERS,
   TAG_FILTERS,
   USER_FILTERS,
@@ -253,6 +254,11 @@ export const TagsSearchParamsSchema = PaginatedSearchParamsSchema.extend({
 // The users list on /community
 export const UsersSearchParamsSchema = PaginatedSearchParamsSchema.extend({
   filter: z.enum(USER_FILTERS.map((filter) => filter.value)).optional(),
+});
+
+// The signed-in user's saved questions on /collection
+export const CollectionSearchParamsSchema = PaginatedSearchParamsSchema.extend({
+  filter: z.enum(COLLECTION_FILTERS.map((filter) => filter.value)).optional(),
 });
 
 // One tag's questions on /tags/[id]: newest first, so no filter
