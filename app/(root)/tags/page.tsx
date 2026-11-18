@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import TagGridCard from "@/components/cards/TagGridCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
+import Pagination from "@/components/Pagination";
 import LocalSearch from "@/components/search/LocalSearch";
 import { TAG_FILTERS, isTagFilter } from "@/constants/filters";
 import { EMPTY_TAGS, EMPTY_TAGS_SEARCH } from "@/constants/states";
@@ -67,6 +68,12 @@ const Tags = async ({ searchParams }: PageProps<"/tags">) => {
           </ul>
         )}
       />
+
+      {result.success && (
+        <Suspense>
+          <Pagination page={pageNumber ?? 1} isNext={result.data.isNext} />
+        </Suspense>
+      )}
     </>
   );
 };

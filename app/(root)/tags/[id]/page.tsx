@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
+import Pagination from "@/components/Pagination";
 import LocalSearch from "@/components/search/LocalSearch";
 import {
   EMPTY_TAG_QUESTIONS,
@@ -68,6 +69,12 @@ const TagDetails = async ({
           </section>
         )}
       />
+
+      {result.success && (
+        <Suspense>
+          <Pagination page={pageNumber ?? 1} isNext={result.data.isNext} />
+        </Suspense>
+      )}
     </>
   );
 };

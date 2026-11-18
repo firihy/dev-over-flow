@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
+import Pagination from "@/components/Pagination";
 import LocalSearch from "@/components/search/LocalSearch";
 import { COLLECTION_FILTERS, isCollectionFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
@@ -76,6 +77,12 @@ const Collection = async ({ searchParams }: PageProps<"/collection">) => {
           </section>
         )}
       />
+
+      {result.success && (
+        <Suspense>
+          <Pagination page={pageNumber ?? 1} isNext={result.data.isNext} />
+        </Suspense>
+      )}
     </>
   );
 };

@@ -5,6 +5,7 @@ import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
 import HomeFilter from "@/components/filters/HomeFilter";
+import Pagination from "@/components/Pagination";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
 import { HOME_FILTERS, isHomeFilter } from "@/constants/filters";
@@ -92,6 +93,12 @@ const Home = async ({ searchParams }: PageProps<"/">) => {
           </section>
         )}
       />
+
+      {result.success && (
+        <Suspense>
+          <Pagination page={pageNumber ?? 1} isNext={result.data.isNext} />
+        </Suspense>
+      )}
     </>
   );
 };

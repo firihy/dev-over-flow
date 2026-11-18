@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import UserCard from "@/components/cards/UserCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
+import Pagination from "@/components/Pagination";
 import LocalSearch from "@/components/search/LocalSearch";
 import { USER_FILTERS, isUserFilter } from "@/constants/filters";
 import { EMPTY_USERS, EMPTY_USERS_SEARCH } from "@/constants/states";
@@ -70,6 +71,12 @@ const Community = async ({ searchParams }: PageProps<"/community">) => {
           </ul>
         )}
       />
+
+      {result.success && (
+        <Suspense>
+          <Pagination page={pageNumber ?? 1} isNext={result.data.isNext} />
+        </Suspense>
+      )}
     </>
   );
 };
