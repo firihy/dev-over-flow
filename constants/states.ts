@@ -108,3 +108,22 @@ export const EMPTY_COLLECTION_SEARCH: EmptyState = {
   message: "Try other words, or clear the search.",
   button: { text: "Show All Saved", href: ROUTES.COLLECTION },
 };
+
+// A profile with no questions
+export const EMPTY_USER_QUESTIONS: EmptyState = {
+  title: "No Questions Yet",
+  message: "This user hasn't asked any questions yet.",
+};
+
+// A profile with no answers
+export const EMPTY_USER_ANSWERS: EmptyState = {
+  title: "No Answers Yet",
+  message: "This user hasn't answered any questions yet.",
+};
+
+// A profile page past the last question or answer. The Prev link under it
+// goes back.
+export const EMPTY_USER_POSTS_PAGE: EmptyState = {
+  title: "No More Posts",
+  message: "This page is past the last one.",
+};

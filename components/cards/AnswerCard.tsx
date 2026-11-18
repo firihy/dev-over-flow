@@ -5,7 +5,7 @@ import UserAvatar from "@/components/UserAvatar";
 import Votes from "@/components/votes/Votes";
 import ROUTES from "@/constants/routes";
 import type { VoteType } from "@/constants/votes";
-import { getTimeStamp } from "@/lib/utils";
+import { cn, getTimeStamp } from "@/lib/utils";
 import type { Answer } from "@/types";
 
 interface AnswerCardProps extends Answer {
@@ -13,6 +13,10 @@ interface AnswerCardProps extends Answer {
   userVote: VoteType | null;
   isSignedIn: boolean;
   isAuthor: boolean;
+  // Set on a profile: only the start of the answer shows, with a "Read
+  // more" link to it on its question's page
+  readMoreHref?: string;
+  className?: string;
 }
 
 const AnswerCard = ({
@@ -25,6 +29,8 @@ const AnswerCard = ({
   userVote,
   isSignedIn,
   isAuthor,
+  readMoreHref,
+  className,
 }: AnswerCardProps) => {
   const answeredAt = (
     <time dateTime={createdAt}>
@@ -36,7 +42,10 @@ const AnswerCard = ({
   return (
     // The id lets a link jump to this answer (/questions/<id>#<answerId>).
     // scroll-mt keeps it from hiding under the fixed navbar.
-    <article id={_id} className="light-border scroll-mt-36 border-b py-10">
+    <article
+      id={_id}
+      className={cn("light-border scroll-mt-36 border-b py-10", className)}
+    >
       <div className="mb-5 flex flex-col-reverse justify-between gap-5 sm:flex-row sm:items-center sm:gap-2">
         {author ? (
           <div className="flex flex-1 items-start gap-1.5 sm:items-center">
@@ -81,7 +90,23 @@ const AnswerCard = ({
         </div>
       </div>
 
-      <Preview content={content} />
+      {readMoreHref ? (
+        <>
+          {/* Cut by height, not by characters: cutting the markdown could
+              break a code block. The fade shows there's more. */}
+          <div className="max-h-48 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
+            <Preview content={content} />
+          </div>
+          <Link
+            href={readMoreHref}
+            className="body-semibold font-space-grotesk text-primary-500 mt-3 inline-block"
+          >
+            Read more
+          </Link>
+        </>
+      ) : (
+        <Preview content={content} />
+      )}
     </article>
   );
 };
