@@ -192,6 +192,20 @@ erDiagram
   `username`, `image` and `reputation` (`UserListItem`), never the email, and
   the escaped search matches `name` and `username` only: searching emails
   would let anyone check whether an address has an account.
+- **A profile** (`getUser` in `lib/actions/user.action.ts`) loads one
+  user's public fields only (`UserProfile`: no email) and counts their
+  questions and answers with `countDocuments({ author })` (the `author`
+  indexes), all three at once. A malformed ID is a 400 and an unknown user
+  a 404; the `/profile/[id]` page turns both into `notFound()`. The page
+  then loads only the open tab's list (`?tab=answers`), with one extra
+  document for `isNext` and `_id` last in the sort:
+  `getUserQuestions` (most upvoted first, built with `toQuestionCards`)
+  or `getUserAnswers` (newest first, with the question's id for the
+  "Read more" link). `getUserTopTags` is an aggregation on questions:
+  `$match` the author, `$unwind` the tags, `$group` to count each one,
+  `$lookup` its name, then the 10 most used (ties by name). Aggregations
+  don't cast ids, so the ID is checked by the schema before
+  `new Types.ObjectId()`.
 - **One tag's questions** (`getTagQuestions` in `lib/actions/tag.action.ts`)
   loads the tag and a page of questions with `tags: tagId` (the `tags`
   index), newest first with `_id` last. It searches titles and content like
