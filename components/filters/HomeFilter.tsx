@@ -26,7 +26,7 @@ const HomeFilter = () => {
   };
 
   return (
-    // TODO: Add a dropdown filter for mobile
+    // Phones get CommonFilter instead (see the home page)
     <div className="mt-10 hidden flex-wrap gap-3 sm:flex">
       {HOME_FILTERS.map(({ name, value }) => {
         const isActive = activeFilter === value;

@@ -3,10 +3,11 @@ import { Suspense } from "react";
 
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
+import CommonFilter from "@/components/filters/CommonFilter";
 import HomeFilter from "@/components/filters/HomeFilter";
 import LocalSearch from "@/components/search/LocalSearch";
 import { Button } from "@/components/ui/button";
-import { isHomeFilter } from "@/constants/filters";
+import { HOME_FILTERS, isHomeFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { EMPTY_QUESTION, EMPTY_QUESTION_SEARCH } from "@/constants/states";
 import { getQuestions } from "@/lib/actions/question.action";
@@ -51,7 +52,7 @@ const Home = async ({ searchParams }: PageProps<"/">) => {
         </Button>
       </section>
 
-      <section className="mt-11">
+      <section className="mt-11 flex flex-col gap-5">
         <Suspense
           fallback={
             <div className="background-light800_darkgradient min-h-14 rounded-[10px]" />
@@ -60,6 +61,16 @@ const Home = async ({ searchParams }: PageProps<"/">) => {
           <LocalSearch
             placeholder={SEARCH_PLACEHOLDER}
             label="Search questions"
+          />
+        </Suspense>
+
+        {/* Phones get a dropdown; from sm up, HomeFilter's buttons */}
+        <Suspense fallback={<div className="min-h-14 sm:hidden" />}>
+          <CommonFilter
+            filters={HOME_FILTERS}
+            label="Sort questions"
+            className="sm:hidden"
+            triggerClassName="min-h-14"
           />
         </Suspense>
       </section>
