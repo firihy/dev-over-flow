@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import ProfileLink from "@/components/user/ProfileLink";
+import Stats from "@/components/user/Stats";
 import UserAvatar from "@/components/UserAvatar";
 import { getUser } from "@/lib/actions/user.action";
 
@@ -35,47 +36,58 @@ const Profile = async ({ params }: PageProps<"/profile/[id]">) => {
     throw new Error(result.error.message);
   }
 
-  const { user } = result.data;
+  const { user, totalQuestions, totalAnswers } = result.data;
   const { name, username, image, bio, location, portfolio, createdAt } = user;
   const portfolioLink = portfolio ? toPortfolioLink(portfolio) : null;
 
   return (
-    <section className="flex flex-col items-start gap-4 lg:flex-row">
-      <UserAvatar
-        id={user._id}
-        name={name}
-        imageUrl={image}
-        className="size-35"
-        fallbackClassName="text-6xl font-bold"
-        linkToProfile={false}
-      />
+    <>
+      <section className="flex flex-col items-start gap-4 lg:flex-row">
+        <UserAvatar
+          id={user._id}
+          name={name}
+          imageUrl={image}
+          className="size-35"
+          fallbackClassName="text-6xl font-bold"
+          linkToProfile={false}
+        />
 
-      <div className="mt-3">
-        <h1 className="h2-bold text-dark100_light900">{name}</h1>
-        <p className="paragraph-regular text-dark200_light800">@{username}</p>
+        <div className="mt-3">
+          <h1 className="h2-bold text-dark100_light900">{name}</h1>
+          <p className="paragraph-regular text-dark200_light800">@{username}</p>
 
-        <div className="mt-5 flex flex-wrap items-center justify-start gap-5">
-          {portfolioLink && (
+          <div className="mt-5 flex flex-wrap items-center justify-start gap-5">
+            {portfolioLink && (
+              <ProfileLink
+                imgUrl="/icons/link.svg"
+                href={portfolioLink.href}
+                title={portfolioLink.title}
+              />
+            )}
+            {location && (
+              <ProfileLink imgUrl="/icons/location.svg" title={location} />
+            )}
             <ProfileLink
-              imgUrl="/icons/link.svg"
-              href={portfolioLink.href}
-              title={portfolioLink.title}
+              imgUrl="/icons/calendar.svg"
+              title={`Joined ${joinedFormat.format(new Date(createdAt))}`}
             />
-          )}
-          {location && (
-            <ProfileLink imgUrl="/icons/location.svg" title={location} />
-          )}
-          <ProfileLink
-            imgUrl="/icons/calendar.svg"
-            title={`Joined ${joinedFormat.format(new Date(createdAt))}`}
-          />
-        </div>
+          </div>
 
-        {bio && (
-          <p className="paragraph-regular text-dark400_light800 mt-8">{bio}</p>
-        )}
-      </div>
-    </section>
+          {bio && (
+            <p className="paragraph-regular text-dark400_light800 mt-8">
+              {bio}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <Stats
+        totalQuestions={totalQuestions}
+        totalAnswers={totalAnswers}
+        // Placeholder: badges aren't earned yet, so everyone has 0
+        badges={{ GOLD: 0, SILVER: 0, BRONZE: 0 }}
+      />
+    </>
   );
 };
 
