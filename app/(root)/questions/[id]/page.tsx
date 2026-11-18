@@ -8,10 +8,12 @@ import Preview from "@/components/editor/Preview";
 import AnswerForm from "@/components/forms/AnswerForm";
 import Metric from "@/components/Metric";
 import QuestionViewTracker from "@/components/questions/QuestionViewTracker";
+import SaveQuestion from "@/components/questions/SaveQuestion";
 import UserAvatar from "@/components/UserAvatar";
 import Votes from "@/components/votes/Votes";
 import ROUTES from "@/constants/routes";
 import { getAnswers } from "@/lib/actions/answer.action";
+import { hasSavedQuestion } from "@/lib/actions/collection.action";
 import { getQuestion } from "@/lib/actions/question.action";
 import { getUserVotes } from "@/lib/actions/vote.action";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
@@ -45,16 +47,21 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
     downvotes,
   } = result.data;
 
-  // The signed-in user's votes on the question and the answers shown, in
-  // one query. If it fails, the arrows just show no vote.
+  // The signed-in user's votes on the question and the answers shown (one
+  // query), and whether they saved the question. If either fails, the
+  // arrows show no vote and the star shows "not saved".
   const userId = session?.user?.id;
   const shownAnswers = answersResult.success ? answersResult.data.answers : [];
-  const votesResult = userId
-    ? await getUserVotes({
-        targetIds: [_id, ...shownAnswers.map((answer) => answer._id)],
-      })
-    : null;
+  const [votesResult, savedResult] = userId
+    ? await Promise.all([
+        getUserVotes({
+          targetIds: [_id, ...shownAnswers.map((answer) => answer._id)],
+        }),
+        hasSavedQuestion({ questionId: _id }),
+      ])
+    : [null, null];
   const userVotes = votesResult?.success ? votesResult.data : {};
+  const hasSaved = savedResult?.success ? savedResult.data.saved : false;
 
   return (
     <>
@@ -83,15 +90,22 @@ const QuestionDetails = async ({ params }: PageProps<"/questions/[id]">) => {
           </p>
         )}
 
-        <Votes
-          targetId={_id}
-          targetType="question"
-          upvotes={upvotes}
-          downvotes={downvotes}
-          userVote={userVotes[_id] ?? null}
-          isSignedIn={!!userId}
-          isAuthor={!!userId && author?._id === userId}
-        />
+        <div className="flex items-center gap-4">
+          <Votes
+            targetId={_id}
+            targetType="question"
+            upvotes={upvotes}
+            downvotes={downvotes}
+            userVote={userVotes[_id] ?? null}
+            isSignedIn={!!userId}
+            isAuthor={!!userId && author?._id === userId}
+          />
+          <SaveQuestion
+            questionId={_id}
+            hasSaved={hasSaved}
+            isSignedIn={!!userId}
+          />
+        </div>
       </div>
 
       <h1 className="h2-semibold text-dark200_light900 mt-3.5 w-full">
