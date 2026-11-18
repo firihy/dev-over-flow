@@ -257,6 +257,15 @@ erDiagram
   `Collection.exists({ author, question })` on the same index. Signed out,
   it returns `saved: false`. The question page calls it together with
   `getUserVotes`, so the star is right from the first render.
+- **Listing saved questions** (`getSavedQuestions`, the `/collection` page)
+  is one aggregation on `collections`. A row only holds `author` and
+  `question`, so it `$match`es the user's rows (the `author` + `question`
+  index), joins each question with `$lookup` and `$unwind`s it, which also
+  drops saves of deleted questions. The search (escaped, like
+  `getQuestions`) and the vote/answer sorts then run on the joined
+  question. Most Recent and Oldest sort by when the question was saved;
+  every sort ends with `_id`. It fetches one extra row for `isNext`, drops
+  the question bodies, and populates tags and authors with `CARD_POPULATE`.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
