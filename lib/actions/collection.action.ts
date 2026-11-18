@@ -3,6 +3,7 @@
 // Server actions: every export here can be called from the browser with a
 // POST, so each one validates its own input.
 
+import { type PipelineStage, Types } from "mongoose";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
@@ -13,10 +14,31 @@ import Question from "@/database/question.model";
 import action from "@/lib/handlers/action";
 import handleError, { isDuplicateKeyError } from "@/lib/handlers/error";
 import { NotFoundError, UnauthorizedError } from "@/lib/http-errors";
-import { CollectionBaseSchema } from "@/lib/validations";
-import type { ActionResponse } from "@/types";
+import {
+  CARD_POPULATE,
+  type ListedQuestion,
+  toQuestionCards,
+} from "@/lib/questions";
+import { escapeRegex } from "@/lib/regex";
+import {
+  CollectionBaseSchema,
+  CollectionSearchParamsSchema,
+} from "@/lib/validations";
+import type { ActionResponse, Question as QuestionCardData } from "@/types";
 
 export type CollectionBaseInput = z.input<typeof CollectionBaseSchema>;
+export type GetSavedQuestionsInput = z.input<
+  typeof CollectionSearchParamsSchema
+>;
+
+// createdAt is when the question was saved (the Collection row's).
+// _id last, so equal values keep the same order from page to page.
+const SORTS = {
+  mostrecent: { createdAt: -1, _id: -1 },
+  oldest: { createdAt: 1, _id: 1 },
+  mostvoted: { "question.upvotes": -1, createdAt: -1, _id: -1 },
+  mostanswered: { "question.answers": -1, createdAt: -1, _id: -1 },
+} as const;
 
 // Saves the question for the signed-in user, or unsaves it if it was
 // already saved. Returns what is saved now.
@@ -92,6 +114,77 @@ export async function hasSavedQuestion(
     });
 
     return { success: true, status: 200, data: { saved: !!saved } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// One page of the signed-in user's saved questions, most recently saved
+// first unless a filter says otherwise.
+export async function getSavedQuestions(
+  input: GetSavedQuestionsInput,
+): Promise<ActionResponse<{ questions: QuestionCardData[]; isNext: boolean }>> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: CollectionSearchParamsSchema,
+      authorize: true,
+    });
+    const { page, pageSize, query, filter = "mostrecent" } = params;
+
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    // A Collection row only has author and question, so the search and
+    // the vote/answer sorts need the question itself: join it in with
+    // $lookup. One query for the page, whatever the filter.
+    const pipeline: PipelineStage[] = [
+      // aggregate() doesn't cast strings to ObjectIds like find() does.
+      // Uses the { author, question } index.
+      { $match: { author: new Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: Question.collection.name,
+          localField: "question",
+          foreignField: "_id",
+          as: "question",
+        },
+      },
+      // A save whose question was deleted has nothing to join: drop it
+      { $unwind: "$question" },
+    ];
+    if (query) {
+      const pattern = { $regex: escapeRegex(query), $options: "i" };
+      pipeline.push({
+        $match: {
+          $or: [{ "question.title": pattern }, { "question.content": pattern }],
+        },
+      });
+    }
+    pipeline.push(
+      { $sort: SORTS[filter] },
+      { $skip: (page - 1) * pageSize },
+      // One extra: if it comes back, there's a next page
+      { $limit: pageSize + 1 },
+      // Keep only the question, without its (long) body
+      { $replaceRoot: { newRoot: "$question" } },
+      { $project: { content: 0 } },
+    );
+
+    const saved = await Collection.aggregate<ListedQuestion>(pipeline);
+    const isNext = saved.length > pageSize;
+
+    // Load the tag names and authors, like the other question lists
+    const docs = await Question.populate<ListedQuestion>(
+      saved.slice(0, pageSize),
+      CARD_POPULATE.map((path) => ({ ...path, options: { lean: true } })),
+    );
+
+    return {
+      success: true,
+      status: 200,
+      data: { questions: toQuestionCards(docs), isNext },
+    };
   } catch (error) {
     return handleError(error);
   }
