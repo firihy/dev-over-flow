@@ -70,6 +70,12 @@ export interface Answer {
   createdAt: string;
 }
 
+// An answer on its author's profile: also says which question it
+// answers, for the "Read more" link
+export interface UserAnswer extends Answer {
+  question: string;
+}
+
 // A question's or answer's counts after a vote, and the signed-in user's
 // vote on it (null: not voted)
 export interface VoteResult {

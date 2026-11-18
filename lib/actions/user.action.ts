@@ -6,7 +6,7 @@
 import type { QueryFilter } from "mongoose";
 import type { z } from "zod";
 
-import Answer from "@/database/answer.model";
+import Answer, { type IAnswerDoc } from "@/database/answer.model";
 import Question from "@/database/question.model";
 import User, { type IUser, type IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
@@ -26,6 +26,7 @@ import {
 import type {
   ActionResponse,
   Question as QuestionCardData,
+  UserAnswer,
   UserListItem,
   UserProfile,
 } from "@/types";
@@ -186,6 +187,69 @@ export async function getUserQuestions(
         questions: toQuestionCards(docs.slice(0, pageSize)),
         isNext: docs.length > pageSize,
       },
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// An answer loaded with its author's name and picture and .lean()
+type ListedAnswer = Omit<IAnswerDoc, "author"> & {
+  author: Pick<IUserDoc, "_id" | "name" | "image"> | null;
+};
+
+// One page of a user's answers for their profile, newest first. Public:
+// no sign-in needed. An unknown user just has none; the page checks the
+// user itself.
+export async function getUserAnswers(
+  input: GetUserPostsInput,
+): Promise<ActionResponse<{ answers: UserAnswer[]; isNext: boolean }>> {
+  try {
+    const { params } = await action({
+      params: input,
+      schema: GetUserPostsSchema,
+    });
+    const { userId, page, pageSize } = params;
+
+    // One extra: if it comes back, there's a next page
+    const docs = await Answer.find({ author: userId })
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize + 1)
+      .populate({ path: "author", select: "name image" })
+      .lean<ListedAnswer[]>();
+
+    // Only the fields the card shows, as plain strings
+    const answers = docs
+      .slice(0, pageSize)
+      .map(
+        ({
+          _id,
+          author,
+          question,
+          content,
+          upvotes,
+          downvotes,
+          createdAt,
+        }) => ({
+          _id: _id.toString(),
+          author: author && {
+            _id: author._id.toString(),
+            name: author.name,
+            image: author.image,
+          },
+          question: question.toString(),
+          content,
+          upvotes,
+          downvotes,
+          createdAt: createdAt.toISOString(),
+        }),
+      );
+
+    return {
+      success: true,
+      status: 200,
+      data: { answers, isNext: docs.length > pageSize },
     };
   } catch (error) {
     return handleError(error);
