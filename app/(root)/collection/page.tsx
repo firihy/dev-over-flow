@@ -4,8 +4,9 @@ import { Suspense } from "react";
 import { auth } from "@/auth";
 import QuestionCard from "@/components/cards/QuestionCard";
 import DataRenderer from "@/components/DataRenderer";
+import CommonFilter from "@/components/filters/CommonFilter";
 import LocalSearch from "@/components/search/LocalSearch";
-import { isCollectionFilter } from "@/constants/filters";
+import { COLLECTION_FILTERS, isCollectionFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { EMPTY_COLLECTION, EMPTY_COLLECTION_SEARCH } from "@/constants/states";
 import { getSavedQuestions } from "@/lib/actions/collection.action";
@@ -13,7 +14,6 @@ import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
 
 // The signed-in user's saved questions
-// TODO: Add the sort buttons (?filter= already works)
 const Collection = async ({ searchParams }: PageProps<"/collection">) => {
   // Signed-out users have no collection: check before loading anything
   const session = await auth();
@@ -42,15 +42,23 @@ const Collection = async ({ searchParams }: PageProps<"/collection">) => {
     <>
       <h1 className="h1-bold text-dark100_light900">Saved Questions</h1>
 
-      <section className="mt-11">
+      <section className="mt-11 flex gap-5 max-sm:flex-col sm:items-center">
         <Suspense
           fallback={
-            <div className="background-light800_darkgradient min-h-14 rounded-[10px]" />
+            <div className="background-light800_darkgradient min-h-14 grow rounded-[10px]" />
           }
         >
           <LocalSearch
             placeholder="Search your saved questions..."
             label="Search saved questions"
+          />
+        </Suspense>
+
+        <Suspense fallback={<div className="min-h-14 sm:min-w-44" />}>
+          <CommonFilter
+            filters={COLLECTION_FILTERS}
+            label="Sort saved questions"
+            triggerClassName="min-h-14 sm:min-w-44"
           />
         </Suspense>
       </section>

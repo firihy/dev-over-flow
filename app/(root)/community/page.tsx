@@ -2,14 +2,14 @@ import { Suspense } from "react";
 
 import UserCard from "@/components/cards/UserCard";
 import DataRenderer from "@/components/DataRenderer";
+import CommonFilter from "@/components/filters/CommonFilter";
 import LocalSearch from "@/components/search/LocalSearch";
-import { isUserFilter } from "@/constants/filters";
+import { USER_FILTERS, isUserFilter } from "@/constants/filters";
 import { EMPTY_USERS, EMPTY_USERS_SEARCH } from "@/constants/states";
 import { getUsers } from "@/lib/actions/user.action";
 import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
 
-// TODO: Add the sort buttons (?filter= already works)
 const Community = async ({ searchParams }: PageProps<"/community">) => {
   const { page, pageSize, query, filter } = await searchParams;
   const pageNumber = toPositiveInt(getFirstParam(page));
@@ -34,15 +34,23 @@ const Community = async ({ searchParams }: PageProps<"/community">) => {
     <>
       <h1 className="h1-bold text-dark100_light900">All Users</h1>
 
-      <section className="mt-11">
+      <section className="mt-11 flex gap-5 max-sm:flex-col sm:items-center">
         <Suspense
           fallback={
-            <div className="background-light800_darkgradient min-h-14 rounded-[10px]" />
+            <div className="background-light800_darkgradient min-h-14 grow rounded-[10px]" />
           }
         >
           <LocalSearch
             placeholder="There are some great devs here!"
             label="Search users"
+          />
+        </Suspense>
+
+        <Suspense fallback={<div className="min-h-14 sm:min-w-44" />}>
+          <CommonFilter
+            filters={USER_FILTERS}
+            label="Sort users"
+            triggerClassName="min-h-14 sm:min-w-44"
           />
         </Suspense>
       </section>
