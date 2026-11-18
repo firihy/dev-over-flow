@@ -1,6 +1,10 @@
+import { Suspense } from "react";
+
 import LeftSidebar from "@/components/navigation/LeftSidebar";
 import Navbar from "@/components/navigation/navbar";
-import RightSidebar from "@/components/navigation/RightSidebar";
+import RightSidebar, {
+  RightSidebarFallback,
+} from "@/components/navigation/RightSidebar";
 
 const HomeLayout = ({ children }: LayoutProps<"/">) => {
   return (
@@ -13,7 +17,11 @@ const HomeLayout = ({ children }: LayoutProps<"/">) => {
           <div className="mx-auto w-full max-w-5xl">{children}</div>
         </section>
 
-        <RightSidebar />
+        {/* Its lists come from the database: stream them in so the page
+            doesn't wait for them */}
+        <Suspense fallback={<RightSidebarFallback />}>
+          <RightSidebar />
+        </Suspense>
       </div>
     </main>
   );

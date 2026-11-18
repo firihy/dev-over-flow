@@ -13,6 +13,20 @@ const SidebarNote = ({ children }: { children: ReactNode }) => (
   <p className="body-regular text-dark500_light700 mt-7">{children}</p>
 );
 
+// The sidebar's frame, shared with the placeholder so nothing moves when
+// the lists arrive
+const SIDEBAR_CLASS =
+  "custom-scrollbar background-light900_dark200 light-border shadow-light-300 sticky top-0 right-0 flex h-screen w-87.5 shrink-0 flex-col gap-16 overflow-y-auto border-l p-6 pt-36 max-xl:hidden dark:shadow-none";
+
+// Shown while the lists load (the layout wraps the sidebar in Suspense):
+// the empty frame with its headings, so the page doesn't shift
+export const RightSidebarFallback = () => (
+  <section aria-busy className={SIDEBAR_CLASS}>
+    <h3 className="h3-bold text-dark200_light900">Top Questions</h3>
+    <h3 className="h3-bold text-dark200_light900">Popular Tags</h3>
+  </section>
+);
+
 const RightSidebar = async () => {
   // Neither depends on the other, so load both at once
   const [hotQuestions, topTags] = await Promise.all([
@@ -21,7 +35,7 @@ const RightSidebar = async () => {
   ]);
 
   return (
-    <section className="custom-scrollbar background-light900_dark200 light-border shadow-light-300 sticky top-0 right-0 flex h-screen w-87.5 shrink-0 flex-col gap-16 overflow-y-auto border-l p-6 pt-36 max-xl:hidden dark:shadow-none">
+    <section className={SIDEBAR_CLASS}>
       <div>
         <h3 className="h3-bold text-dark200_light900">Top Questions</h3>
 
