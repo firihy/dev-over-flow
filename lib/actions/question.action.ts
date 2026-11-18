@@ -326,3 +326,32 @@ export async function incrementViews(
     return handleError(error);
   }
 }
+
+// How many questions the right sidebar's "Top Questions" shows
+const HOT_QUESTIONS_LIMIT = 5;
+
+// The most viewed questions for the right sidebar, then the most upvoted.
+// _id comes last so ties keep a fixed order. Only the title is loaded: a
+// question's body can be long and the sidebar doesn't show it.
+// Public and takes no input, so there's nothing to validate.
+export async function getHotQuestions(): Promise<
+  ActionResponse<{ _id: string; title: string }[]>
+> {
+  try {
+    await dbConnect();
+
+    const docs = await Question.find({}, "title")
+      .sort({ views: -1, upvotes: -1, _id: -1 })
+      .limit(HOT_QUESTIONS_LIMIT)
+      .lean<Pick<IQuestionDoc, "_id" | "title">[]>();
+
+    const questions = docs.map(({ _id, title }) => ({
+      _id: _id.toString(),
+      title,
+    }));
+
+    return { success: true, status: 200, data: questions };
+  } catch (error) {
+    return handleError(error);
+  }
+}
