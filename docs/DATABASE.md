@@ -243,6 +243,20 @@ erDiagram
   `Vote.find({ author, actionId: { $in: ids } })` for the question and the
   answers shown (at most 51 ids), using the vote index, which starts with
   `author`. Signed out, it returns no votes without a query.
+- **Saving a question** (`toggleSaveQuestion` in
+  `lib/actions/collection.action.ts`) needs no transaction: each step is one
+  write. It first deletes the user's `Collection` row for the question; if
+  one was deleted, the question is now unsaved. Otherwise it checks the
+  question exists (404 if not) and creates the row. Clicks at the same
+  moment can all find nothing to delete and all create: the unique
+  `author` + `question` index lets one through, and the others' duplicate
+  key error means "already saved", so they return `saved: true` instead of
+  a 500. Unsaving works even if the question was deleted since. It then
+  revalidates the question page and `/collection`.
+- **Whether the user saved a question** (`hasSavedQuestion`) is one
+  `Collection.exists({ author, question })` on the same index. Signed out,
+  it returns `saved: false`. The question page calls it together with
+  `getUserVotes`, so the star is right from the first render.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
