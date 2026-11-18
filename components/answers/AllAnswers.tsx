@@ -31,7 +31,12 @@ const AllAnswers = ({
 }: AllAnswersProps) => (
   <section aria-labelledby="answers-heading" className="mt-11">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <h2 id="answers-heading" className="primary-text-gradient h3-semibold">
+      {/* Pagination links land here (#answers-heading); scroll-mt keeps it
+          from hiding under the fixed navbar, as AnswerCard does */}
+      <h2
+        id="answers-heading"
+        className="primary-text-gradient h3-semibold scroll-mt-36"
+      >
         {totalAnswers} {totalAnswers === 1 ? "Answer" : "Answers"}
       </h2>
       {/* Sorting needs at least two answers */}
