@@ -27,7 +27,7 @@ const toErrorResponse = (
 
 // A unique index rejected the write (MongoDB error code 11000),
 // e.g. a second tag "react" or voting twice on the same question
-const isDuplicateKeyError = (
+export const isDuplicateKeyError = (
   error: unknown,
 ): error is Error & { code: number; keyValue?: Record<string, unknown> } =>
   error instanceof Error && "code" in error && error.code === 11000;
