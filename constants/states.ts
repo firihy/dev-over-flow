@@ -1,7 +1,7 @@
 import ROUTES from "@/constants/routes";
 
 // Text for DataRenderer's empty and error states. Add one EMPTY_* per list
-// (collections...) when its page is built.
+// when its page is built.
 
 // Shared by the empty state link and the Retry button
 export const STATE_BUTTON_CLASS =
@@ -85,4 +85,19 @@ export const EMPTY_USERS_SEARCH: EmptyState = {
   title: "No Matching Users",
   message: "Try another name or username, or clear the search.",
   button: { text: "Show All Users", href: ROUTES.COMMUNITY },
+};
+
+// The signed-in user hasn't saved any question yet
+export const EMPTY_COLLECTION: EmptyState = {
+  title: "No Saved Questions Yet",
+  message:
+    "Tap the star on any question to save it. Your saved questions show up here.",
+  button: { text: "Browse Questions", href: ROUTES.HOME },
+};
+
+// A search or a later page: the user saved questions, none match
+export const EMPTY_COLLECTION_SEARCH: EmptyState = {
+  title: "No Matching Saved Questions",
+  message: "Try other words, or clear the search.",
+  button: { text: "Show All Saved", href: ROUTES.COLLECTION },
 };
