@@ -11,6 +11,7 @@ import Tag, { type ITag, type ITagDoc } from "@/database/tag.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import { NotFoundError } from "@/lib/http-errors";
+import dbConnect from "@/lib/mongoose";
 import {
   CARD_POPULATE,
   type ListedQuestion,
@@ -136,6 +137,35 @@ export async function getTagQuestions(input: GetTagQuestionsInput): Promise<
         isNext: docs.length > pageSize,
       },
     };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// How many tags the right sidebar's "Popular Tags" shows
+const TOP_TAGS_LIMIT = 5;
+
+// The most used tags for the right sidebar, in the same order as the tags
+// page's "popular" filter. Tags aren't deleted when their last question
+// goes, so tags no question uses are skipped.
+// Public and takes no input, so there's nothing to validate.
+export async function getTopTags(): Promise<ActionResponse<TagListItem[]>> {
+  try {
+    await dbConnect();
+
+    const docs = await Tag.find({ questions: { $gt: 0 } }, "name questions")
+      .collation(NAME_COLLATION)
+      .sort(SORTS.popular)
+      .limit(TOP_TAGS_LIMIT)
+      .lean<TagFields[]>();
+
+    const tags = docs.map((tag) => ({
+      _id: tag._id.toString(),
+      name: tag.name,
+      questions: tag.questions,
+    }));
+
+    return { success: true, status: 200, data: tags };
   } catch (error) {
     return handleError(error);
   }
