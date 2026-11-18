@@ -17,15 +17,20 @@ import { getAnswers } from "@/lib/actions/answer.action";
 import { hasSavedQuestion } from "@/lib/actions/collection.action";
 import { getQuestion } from "@/lib/actions/question.action";
 import { getUserVotes } from "@/lib/actions/vote.action";
-import { getFirstParam } from "@/lib/url";
+import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
+import { MAX_PAGE_SIZE } from "@/lib/validations";
 
 const QuestionDetails = async ({
   params,
   searchParams,
 }: PageProps<"/questions/[id]">) => {
   const { id } = await params;
-  const filterValue = getFirstParam((await searchParams).filter);
+  const { page, pageSize, filter } = await searchParams;
+  // ?page=, ?pageSize= and ?filter= are for the answers
+  const pageNumber = toPositiveInt(getFirstParam(page));
+  const pageSizeNumber = toPositiveInt(getFirstParam(pageSize));
+  const filterValue = getFirstParam(filter);
   // An unknown ?filter= falls back to newest
   const answerFilter = isAnswerFilter(filterValue) ? filterValue : undefined;
 
@@ -33,7 +38,12 @@ const QuestionDetails = async ({
   // malformed id gets notFound() below before its result is used.
   const [result, answersResult, session] = await Promise.all([
     getQuestion({ questionId: id }),
-    getAnswers({ questionId: id, page: 1, pageSize: 10, filter: answerFilter }),
+    getAnswers({
+      questionId: id,
+      page: pageNumber,
+      pageSize: pageSizeNumber && Math.min(pageSizeNumber, MAX_PAGE_SIZE),
+      filter: answerFilter,
+    }),
     auth(),
   ]);
   if (!result.success) {
@@ -154,6 +164,7 @@ const QuestionDetails = async ({
 
       <AllAnswers
         result={answersResult}
+        page={pageNumber ?? 1}
         totalAnswers={answers}
         userId={userId}
         userVotes={userVotes}

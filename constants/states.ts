@@ -74,6 +74,13 @@ export const EMPTY_ANSWERS: EmptyState = {
   message: "Be the first to answer this question.",
 };
 
+// A page past the last answer (?page=9 on a question with 3 answers). The
+// Prev link under it goes back.
+export const EMPTY_ANSWERS_PAGE: EmptyState = {
+  title: "No More Answers",
+  message: "This page is past the last answer.",
+};
+
 // Nobody has signed up yet
 export const EMPTY_USERS: EmptyState = {
   title: "No Users Yet",

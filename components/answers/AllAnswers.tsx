@@ -3,14 +3,17 @@ import { Suspense } from "react";
 import AnswerCard from "@/components/cards/AnswerCard";
 import DataRenderer from "@/components/DataRenderer";
 import CommonFilter from "@/components/filters/CommonFilter";
+import Pagination from "@/components/Pagination";
 import { ANSWER_FILTERS } from "@/constants/filters";
-import { EMPTY_ANSWERS } from "@/constants/states";
+import { EMPTY_ANSWERS, EMPTY_ANSWERS_PAGE } from "@/constants/states";
 import type { VoteType } from "@/constants/votes";
 import type { ActionResponse, Answer } from "@/types";
 
 interface AllAnswersProps {
   // getAnswers' response, as it came back
   result: ActionResponse<{ answers: Answer[]; isNext: boolean }>;
+  // The page of answers shown (1 when ?page= is missing or invalid)
+  page: number;
   // The question's stored answer count, so no extra count query is needed
   totalAnswers: number;
   // The signed-in user (undefined when signed out) and their votes on
@@ -21,6 +24,7 @@ interface AllAnswersProps {
 
 const AllAnswers = ({
   result,
+  page,
   totalAnswers,
   userId,
   userVotes,
@@ -46,7 +50,7 @@ const AllAnswers = ({
       success={result.success}
       error={result.success ? undefined : result.error}
       data={result.success ? result.data.answers : null}
-      empty={EMPTY_ANSWERS}
+      empty={page > 1 ? EMPTY_ANSWERS_PAGE : EMPTY_ANSWERS}
       render={(answers) =>
         answers.map((answer) => (
           <AnswerCard
@@ -59,7 +63,16 @@ const AllAnswers = ({
         ))
       }
     />
-    {/* TODO: Add pagination (result.data.isNext) once it's built */}
+
+    {result.success && (
+      <Suspense>
+        <Pagination
+          page={page}
+          isNext={result.data.isNext}
+          hash="answers-heading"
+        />
+      </Suspense>
+    )}
   </section>
 );
 
