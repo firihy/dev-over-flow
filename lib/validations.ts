@@ -326,3 +326,8 @@ export const GetUserVotesSchema = z.object({
 export const CollectionBaseSchema = z.object({
   questionId: objectIdSchema("Question ID"),
 });
+
+// Body of getUser: whose profile to load
+export const GetUserSchema = z.object({
+  userId: objectIdSchema("User ID"),
+});

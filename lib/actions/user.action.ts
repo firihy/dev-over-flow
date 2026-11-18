@@ -6,14 +6,18 @@
 import type { QueryFilter } from "mongoose";
 import type { z } from "zod";
 
+import Answer from "@/database/answer.model";
+import Question from "@/database/question.model";
 import User, { type IUser, type IUserDoc } from "@/database/user.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
+import { NotFoundError } from "@/lib/http-errors";
 import { escapeRegex } from "@/lib/regex";
-import { UsersSearchParamsSchema } from "@/lib/validations";
-import type { ActionResponse, UserListItem } from "@/types";
+import { GetUserSchema, UsersSearchParamsSchema } from "@/lib/validations";
+import type { ActionResponse, UserListItem, UserProfile } from "@/types";
 
 export type GetUsersInput = z.input<typeof UsersSearchParamsSchema>;
+export type GetUserInput = z.input<typeof GetUserSchema>;
 
 type UserFields = Pick<
   IUserDoc,
@@ -69,6 +73,69 @@ export async function getUsers(
       success: true,
       status: 200,
       data: { users, isNext: docs.length > pageSize },
+    };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+type ProfileFields = Pick<
+  IUserDoc,
+  | "_id"
+  | "name"
+  | "username"
+  | "image"
+  | "bio"
+  | "location"
+  | "portfolio"
+  | "reputation"
+  | "createdAt"
+>;
+
+// One user's public profile, with how many questions and answers they
+// posted. Public: no sign-in needed. Loads only the public fields, so the
+// email never leaves the server.
+export async function getUser(input: GetUserInput): Promise<
+  ActionResponse<{
+    user: UserProfile;
+    totalQuestions: number;
+    totalAnswers: number;
+  }>
+> {
+  try {
+    const { params } = await action({ params: input, schema: GetUserSchema });
+    const { userId } = params;
+
+    // Independent of each other, so all at once. Both counts use the
+    // author index.
+    const [user, totalQuestions, totalAnswers] = await Promise.all([
+      User.findById(
+        userId,
+        "name username image bio location portfolio reputation createdAt",
+      ).lean<ProfileFields>(),
+      Question.countDocuments({ author: userId }),
+      Answer.countDocuments({ author: userId }),
+    ]);
+    if (!user) throw new NotFoundError("User");
+
+    return {
+      success: true,
+      status: 200,
+      data: {
+        user: {
+          _id: user._id.toString(),
+          name: user.name,
+          username: user.username,
+          image: user.image,
+          bio: user.bio,
+          location: user.location,
+          portfolio: user.portfolio,
+          reputation: user.reputation ?? 0,
+          createdAt: user.createdAt.toISOString(),
+        },
+        totalQuestions,
+        totalAnswers,
+      },
     };
   } catch (error) {
     return handleError(error);

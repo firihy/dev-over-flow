@@ -31,6 +31,21 @@ export interface UserListItem {
   reputation: number;
 }
 
+// A user's public profile. Never the email: profiles are public, and
+// getUser can be called by anyone.
+export interface UserProfile {
+  _id: string;
+  name: string;
+  username: string;
+  image?: string;
+  bio?: string;
+  location?: string;
+  portfolio?: string;
+  reputation: number;
+  // An ISO date string: it comes from the server as JSON
+  createdAt: string;
+}
+
 export interface Question {
   _id: string;
   title: string;
