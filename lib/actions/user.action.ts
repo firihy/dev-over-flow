@@ -3,7 +3,7 @@
 // Server actions: every export here can be called from the browser with a
 // POST, so each one validates its own input.
 
-import type { QueryFilter } from "mongoose";
+import { type PipelineStage, type QueryFilter, Types } from "mongoose";
 import type { z } from "zod";
 
 import Answer, { type IAnswerDoc } from "@/database/answer.model";
@@ -26,6 +26,7 @@ import {
 import type {
   ActionResponse,
   Question as QuestionCardData,
+  TagListItem,
   UserAnswer,
   UserListItem,
   UserProfile,
@@ -251,6 +252,58 @@ export async function getUserAnswers(
       status: 200,
       data: { answers, isNext: docs.length > pageSize },
     };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// How many tags a profile's "Top Tech" shows
+const USER_TOP_TAGS_LIMIT = 10;
+
+// The tags a user asks about most, with how many of their questions use
+// each, most used first. Public: no sign-in needed. An unknown user just
+// has none.
+export async function getUserTopTags(
+  input: GetUserInput,
+): Promise<ActionResponse<TagListItem[]>> {
+  try {
+    const { params } = await action({ params: input, schema: GetUserSchema });
+
+    const pipeline: PipelineStage[] = [
+      // Aggregations don't cast ids like find() does. The schema already
+      // checked it's a valid ObjectId, so this can't throw.
+      { $match: { author: new Types.ObjectId(params.userId) } },
+      { $unwind: "$tags" },
+      { $group: { _id: "$tags", questions: { $sum: 1 } } },
+      // Each tag's name. $unwind drops a tag that no longer exists.
+      {
+        $lookup: {
+          from: "tags",
+          localField: "_id",
+          foreignField: "_id",
+          as: "tag",
+        },
+      },
+      { $unwind: "$tag" },
+      // Ties by name, then _id, so the order is fixed
+      { $sort: { questions: -1, "tag.name": 1, _id: 1 } },
+      { $limit: USER_TOP_TAGS_LIMIT },
+      { $project: { _id: 1, name: "$tag.name", questions: 1 } },
+    ];
+
+    const docs = await Question.aggregate<{
+      _id: Types.ObjectId;
+      name: string;
+      questions: number;
+    }>(pipeline);
+
+    const tags = docs.map(({ _id, name, questions }) => ({
+      _id: _id.toString(),
+      name,
+      questions,
+    }));
+
+    return { success: true, status: 200, data: tags };
   } catch (error) {
     return handleError(error);
   }
