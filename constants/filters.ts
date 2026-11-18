@@ -1,3 +1,6 @@
+// Each list's sort options. The first entry must be the sort the server
+// uses when ?filter= is missing: CommonFilter shows it as selected then.
+
 // The sort buttons above the home page questions. The value goes in the
 // URL (?filter=newest) and is checked by QuestionsSearchParamsSchema.
 // TODO: Add Recommended once recommendations are built
