@@ -94,6 +94,9 @@ const Profile = async ({
   const userVotes = votesResult?.success ? votesResult.data : {};
 
   const { user, totalQuestions, totalAnswers } = result.data;
+  // Every post here is this user's, so on your own profile you can edit
+  // and delete them (the actions check the author again)
+  const isOwnProfile = viewerId === user._id;
   const { name, username, image, bio, location, portfolio, createdAt } = user;
   const portfolioLink = portfolio ? toPortfolioLink(portfolio) : null;
   const isLaterPage = (pageNumber ?? 1) > 1;
@@ -168,7 +171,11 @@ const Profile = async ({
                 render={(questions) => (
                   <div className="mt-5 flex w-full flex-col gap-6">
                     {questions.map((question) => (
-                      <QuestionCard key={question._id} question={question} />
+                      <QuestionCard
+                        key={question._id}
+                        question={question}
+                        showActions={isOwnProfile}
+                      />
                     ))}
                   </div>
                 )}
@@ -201,7 +208,8 @@ const Profile = async ({
                         {...answer}
                         userVote={userVotes[answer._id] ?? null}
                         isSignedIn={!!viewerId}
-                        isAuthor={viewerId === user._id}
+                        isAuthor={isOwnProfile}
+                        showActions={isOwnProfile}
                         // Lands on the answer if it's on the question's
                         // first page of answers, else at the question's top
                         readMoreHref={`${ROUTES.QUESTION(answer.question)}#${answer._id}`}

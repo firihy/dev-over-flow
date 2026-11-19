@@ -10,6 +10,7 @@ const ROUTES = {
   PROFILE_DETAILS: (id: string) => `/profile/${id}`,
   ASK_QUESTION: "/ask-question",
   QUESTION: (id: string) => `/questions/${id}`,
+  EDIT_QUESTION: (id: string) => `/questions/${id}/edit`,
   TAG: (id: string) => `/tags/${id}`,
 };
 

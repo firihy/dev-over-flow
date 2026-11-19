@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import TagCard from "@/components/cards/TagCard";
 import Metric from "@/components/Metric";
+import EditDeleteAction from "@/components/user/EditDeleteAction";
 import UserAvatar from "@/components/UserAvatar";
 import ROUTES from "@/constants/routes";
 import { formatNumber, getTimeStamp } from "@/lib/utils";
@@ -9,10 +10,13 @@ import type { Question } from "@/types";
 
 interface QuestionCardProps {
   question: Question;
+  // Edit and delete buttons, for the question's author
+  showActions?: boolean;
 }
 
 const QuestionCard = ({
   question: { _id, title, tags, author, createdAt, upvotes, answers, views },
+  showActions = false,
 }: QuestionCardProps) => {
   const timeStamp = (
     <time dateTime={createdAt}>{getTimeStamp(new Date(createdAt))}</time>
@@ -21,7 +25,7 @@ const QuestionCard = ({
   return (
     <article className="card-wrapper rounded-[10px] p-9 sm:px-11">
       <div className="flex flex-col-reverse items-start justify-between gap-5 sm:flex-row">
-        <div>
+        <div className="min-w-0 flex-1">
           {/* On desktop the time sits on the author line instead */}
           <span className="subtle-regular text-dark400_light700 line-clamp-1 flex sm:hidden">
             {timeStamp}
@@ -33,6 +37,14 @@ const QuestionCard = ({
             </h2>
           </Link>
         </div>
+
+        {showActions && (
+          <EditDeleteAction
+            type="question"
+            itemId={_id}
+            className="max-sm:self-end"
+          />
+        )}
       </div>
 
       <div className="mt-3.5 flex w-full flex-wrap gap-2">

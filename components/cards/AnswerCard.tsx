@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import Preview from "@/components/editor/Preview";
+import EditDeleteAction from "@/components/user/EditDeleteAction";
 import UserAvatar from "@/components/UserAvatar";
 import Votes from "@/components/votes/Votes";
 import ROUTES from "@/constants/routes";
@@ -16,6 +17,8 @@ interface AnswerCardProps extends Answer {
   // Set on a profile: only the start of the answer shows, with a "Read
   // more" link to it on its question's page
   readMoreHref?: string;
+  // A delete button, for the answer's author
+  showActions?: boolean;
   className?: string;
 }
 
@@ -30,6 +33,7 @@ const AnswerCard = ({
   isSignedIn,
   isAuthor,
   readMoreHref,
+  showActions = false,
   className,
 }: AnswerCardProps) => {
   const answeredAt = (
@@ -77,7 +81,8 @@ const AnswerCard = ({
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex shrink-0 items-center justify-end gap-5">
+          {showActions && <EditDeleteAction type="answer" itemId={_id} />}
           <Votes
             targetId={_id}
             targetType="answer"
