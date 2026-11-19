@@ -4,8 +4,11 @@
 // POST, so each one validates its own input.
 
 import type { QueryFilter } from "mongoose";
+import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
+import Answer from "@/database/answer.model";
+import Collection from "@/database/collection.model";
 import Question, {
   type IQuestion,
   type IQuestionDoc,
@@ -13,6 +16,7 @@ import Question, {
 import TagQuestion from "@/database/tag-question.model";
 import Tag, { type ITagDoc } from "@/database/tag.model";
 import type { IUserDoc } from "@/database/user.model";
+import Vote from "@/database/vote.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import {
@@ -29,6 +33,7 @@ import {
 import { escapeRegex } from "@/lib/regex";
 import {
   AskQuestionSchema,
+  DeleteQuestionSchema,
   EditQuestionSchema,
   GetQuestionSchema,
   IncrementViewsSchema,
@@ -45,6 +50,7 @@ export type EditQuestionInput = z.input<typeof EditQuestionSchema>;
 export type GetQuestionInput = z.input<typeof GetQuestionSchema>;
 export type IncrementViewsInput = z.input<typeof IncrementViewsSchema>;
 export type GetQuestionsInput = z.input<typeof QuestionsSearchParamsSchema>;
+export type DeleteQuestionInput = z.input<typeof DeleteQuestionSchema>;
 
 // A question with its tags and author loaded (populated) instead of just
 // their ids. author is null when the user was deleted.
@@ -351,6 +357,78 @@ export async function getHotQuestions(): Promise<
     }));
 
     return { success: true, status: 200, data: questions };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Deletes a question and everything that belongs to it: its answers, the
+// votes on both, the copies users saved and its tag links. Each of its
+// tags counts one question less. Only its author can.
+export async function deleteQuestion(
+  input: DeleteQuestionInput,
+): Promise<ActionResponse> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: DeleteQuestionSchema,
+      authorize: true,
+    });
+    const { questionId } = params;
+
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    const { connection } = await dbConnect();
+
+    // All or nothing, so no vote or answer is left pointing at a deleted
+    // question. Safe to run again (see createQuestion).
+    await connection.transaction(async (dbSession) => {
+      const found = await Question.findById(questionId, "author tags").session(
+        dbSession,
+      );
+      if (!found) throw new NotFoundError("Question");
+      if (!found.author.equals(userId)) {
+        throw new ForbiddenError("Only the author can delete this question");
+      }
+
+      // The answers' ids first: their votes go too
+      const answerIds = await Answer.find({ question: found._id })
+        .session(dbSession)
+        .distinct("_id");
+
+      await Vote.deleteMany(
+        {
+          $or: [
+            { actionId: found._id, actionTarget: "question" },
+            { actionId: { $in: answerIds }, actionTarget: "answer" },
+          ],
+        },
+        { session: dbSession },
+      );
+      await Answer.deleteMany({ question: found._id }, { session: dbSession });
+      await Collection.deleteMany(
+        { question: found._id },
+        { session: dbSession },
+      );
+      await TagQuestion.deleteMany(
+        { question: found._id },
+        { session: dbSession },
+      );
+      // The filter keeps counts from going negative (see editQuestion)
+      await Tag.updateMany(
+        { _id: { $in: found.tags }, questions: { $gt: 0 } },
+        { $inc: { questions: -1 } },
+        { session: dbSession },
+      );
+      await found.deleteOne({ session: dbSession });
+    });
+
+    // The question was on many pages (home, its tags, profiles, saved
+    // lists) and in the right sidebar, which every page shows
+    revalidatePath("/", "layout");
+
+    return { success: true, status: 200, data: null };
   } catch (error) {
     return handleError(error);
   }
