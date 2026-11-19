@@ -344,3 +344,8 @@ export const GetUserPostsSchema = PaginatedSearchParamsSchema.omit({
 export const DeleteQuestionSchema = z.object({
   questionId: objectIdSchema("Question ID"),
 });
+
+// Body of deleteAnswer: which answer to delete
+export const DeleteAnswerSchema = z.object({
+  answerId: objectIdSchema("Answer ID"),
+});

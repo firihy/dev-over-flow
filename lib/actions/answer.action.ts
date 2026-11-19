@@ -11,15 +11,25 @@ import ROUTES from "@/constants/routes";
 import Answer, { type IAnswerDoc } from "@/database/answer.model";
 import Question from "@/database/question.model";
 import type { IUserDoc } from "@/database/user.model";
+import Vote from "@/database/vote.model";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
-import { NotFoundError, UnauthorizedError } from "@/lib/http-errors";
+import {
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} from "@/lib/http-errors";
 import dbConnect from "@/lib/mongoose";
-import { AnswerServerSchema, GetAnswersSchema } from "@/lib/validations";
+import {
+  AnswerServerSchema,
+  DeleteAnswerSchema,
+  GetAnswersSchema,
+} from "@/lib/validations";
 import type { ActionResponse, Answer as AnswerData, Serialized } from "@/types";
 
 export type CreateAnswerInput = z.input<typeof AnswerServerSchema>;
 export type GetAnswersInput = z.input<typeof GetAnswersSchema>;
+export type DeleteAnswerInput = z.input<typeof DeleteAnswerSchema>;
 
 // An answer loaded with its author's name and picture and .lean()
 type ListedAnswer = Omit<IAnswerDoc, "author"> & {
@@ -131,6 +141,59 @@ export async function getAnswers(
       }));
 
     return { success: true, status: 200, data: { answers, isNext } };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Deletes an answer and the votes on it, and its question counts one
+// answer less. Only its author can.
+export async function deleteAnswer(
+  input: DeleteAnswerInput,
+): Promise<ActionResponse> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: DeleteAnswerSchema,
+      authorize: true,
+    });
+    const { answerId } = params;
+
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    const { connection } = await dbConnect();
+
+    // All or nothing, so the count can't drop while the answer stays.
+    // Safe to run again (see createAnswer).
+    await connection.transaction(async (dbSession) => {
+      const found = await Answer.findById(answerId, "author question").session(
+        dbSession,
+      );
+      if (!found) throw new NotFoundError("Answer");
+      if (!found.author.equals(userId)) {
+        throw new ForbiddenError("Only the author can delete this answer");
+      }
+
+      await Vote.deleteMany(
+        { actionId: found._id, actionTarget: "answer" },
+        { session: dbSession },
+      );
+      // The filter keeps the count from going negative. timestamps: false
+      // keeps the question's updatedAt for real edits (see createAnswer).
+      await Question.updateOne(
+        { _id: found.question, answers: { $gt: 0 } },
+        { $inc: { answers: -1 } },
+        { session: dbSession, timestamps: false },
+      );
+      await found.deleteOne({ session: dbSession });
+    });
+
+    // The answer count shows on question cards everywhere, and the
+    // answer itself on its question and the author's profile
+    revalidatePath("/", "layout");
+
+    return { success: true, status: 200, data: null };
   } catch (error) {
     return handleError(error);
   }
