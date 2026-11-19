@@ -23,6 +23,9 @@ const CollectionSchema = new Schema<ICollection>(
 // speeds up the "Collections" page ("questions this user saved").
 CollectionSchema.index({ author: 1, question: 1 }, { unique: true });
 
+// Finds a question's saved copies, to delete them with the question
+CollectionSchema.index({ question: 1 });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const Collection =
   (models.Collection as Model<ICollection> | undefined) ??

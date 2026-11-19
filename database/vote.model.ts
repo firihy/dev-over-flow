@@ -35,6 +35,9 @@ const VoteSchema = new Schema<IVote>(
 // Starts with `author`, so it also speeds up "this user's votes".
 VoteSchema.index({ author: 1, actionId: 1, actionTarget: 1 }, { unique: true });
 
+// Finds every vote on a question or answer, to delete them with it
+VoteSchema.index({ actionId: 1, actionTarget: 1 });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const Vote =
   (models.Vote as Model<IVote> | undefined) ?? model<IVote>("Vote", VoteSchema);
