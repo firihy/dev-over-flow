@@ -255,7 +255,7 @@ erDiagram
   question).
 - **The user's votes on a page** (`getUserVotes`) is one
   `Vote.find({ author, actionId: { $in: ids } })` for the question and the
-  answers shown (at most 51 ids), using the vote index, which starts with
+  answers shown (at most 51 ids), using the unique vote index, which starts with
   `author`. Signed out, it returns no votes without a query.
 - **Saving a question** (`toggleSaveQuestion` in
   `lib/actions/collection.action.ts`) needs no transaction: each step is one
@@ -280,6 +280,26 @@ erDiagram
   question. Most Recent and Oldest sort by when the question was saved;
   every sort ends with `_id`. It fetches one extra row for `isNext`, drops
   the question bodies, and populates tags and authors with `CARD_POPULATE`.
+- **Deleting a question** (`deleteQuestion` in
+  `lib/actions/question.action.ts`) runs in one transaction, so nothing is
+  left pointing at it. It loads the question (404 if it's gone, 403 if the
+  user didn't write it), collects its answers' ids, then deletes the votes on
+  the question and on those answers, the answers, the `Collection` rows
+  (saved copies), the `TagQuestion` links and the question. Each of its tags
+  counts one question less, with a `questions: { $gt: 0 }` filter so a count
+  never goes negative. The tag itself stays, even at 0 (`getTopTags` skips
+  those). The votes and saved copies are found by the `actionId` +
+  `actionTarget` and `question` indexes: the unique indexes start with
+  `author`, so without these the deletes would scan every row.
+- **Deleting an answer** (`deleteAnswer` in `lib/actions/answer.action.ts`)
+  also runs in one transaction: 404 if it's gone, 403 if the user didn't
+  write it, then it deletes the votes on it and the answer, and its question
+  counts one answer less (`$gt: 0` filter, `timestamps: false`).
+- Both revalidate every page (`revalidatePath("/", "layout")`): the post
+  showed on lists, tag pages, profiles and saved lists, and the right
+  sidebar on every page shows top questions and tag counts. Deleting a user
+  isn't built yet, and `Interaction` isn't written anywhere yet, so neither
+  has anything to clean up.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
