@@ -127,17 +127,17 @@ erDiagram
 
 ## The collections
 
-| Model         | Collection     | One document is…                                       | Unique rule                                        |
-| ------------- | -------------- | ------------------------------------------------------ | -------------------------------------------------- |
-| `User`        | `users`        | A person and their profile.                            | `username`; `email`                                |
-| `Account`     | `accounts`     | One way a user logs in (see `docs/AUTH.md`).           | `provider` + `providerAccountId`                   |
-| `Question`    | `questions`    | A question, with counters for views, votes, answers.   | —                                                  |
-| `Tag`         | `tags`         | A topic like `react`, with how many questions use it.  | `name`, ignoring case                              |
-| `TagQuestion` | `tagquestions` | One link between a tag and a question.                 | `tag` + `question`                                 |
-| `Answer`      | `answers`      | An answer to one question.                             | —                                                  |
-| `Collection`  | `collections`  | A question a user saved (bookmarked).                  | `author` + `question` (save once)                  |
-| `Vote`        | `votes`        | One user's up- or downvote on a question or answer.    | `author` + `actionId` + `actionTarget` (vote once) |
-| `Interaction` | `interactions` | An activity log entry, used later for recommendations. | —                                                  |
+| Model         | Collection     | One document is…                                      | Unique rule                                        |
+| ------------- | -------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| `User`        | `users`        | A person and their profile.                           | `username`; `email`                                |
+| `Account`     | `accounts`     | One way a user logs in (see `docs/AUTH.md`).          | `provider` + `providerAccountId`                   |
+| `Question`    | `questions`    | A question, with counters for views, votes, answers.  | —                                                  |
+| `Tag`         | `tags`         | A topic like `react`, with how many questions use it. | `name`, ignoring case                              |
+| `TagQuestion` | `tagquestions` | One link between a tag and a question.                | `tag` + `question`                                 |
+| `Answer`      | `answers`      | An answer to one question.                            | —                                                  |
+| `Collection`  | `collections`  | A question a user saved (bookmarked).                 | `author` + `question` (save once)                  |
+| `Vote`        | `votes`        | One user's up- or downvote on a question or answer.   | `author` + `actionId` + `actionTarget` (vote once) |
+| `Interaction` | `interactions` | An activity log entry, used for recommendations.      | —                                                  |
 
 ## Design notes
 
@@ -159,7 +159,8 @@ erDiagram
 - **Counters are copies.** `Question.answers`, `upvotes`, `downvotes` and
   `Tag.questions` could be counted from other collections. `views` can't:
   `Interaction` needs a user, so signed-out views leave no record and the
-  counter is the only tally. They are stored so lists don't count on every
+  counter is the only tally. `User.reputation` is a copy too, of the points
+  the user's actions earned (see "Reputation, badges and recommendations"). They are stored so lists don't count on every
   page load, and the code must `$inc` them
   whenever the real data changes. `min: 0` runs on create, save and validated
   updates, but **never on `$inc`**, so a decrement must guard in its filter,
@@ -297,9 +298,34 @@ erDiagram
   counts one answer less (`$gt: 0` filter, `timestamps: false`).
 - Both revalidate every page (`revalidatePath("/", "layout")`): the post
   showed on lists, tag pages, profiles and saved lists, and the right
-  sidebar on every page shows top questions and tag counts. Deleting a user
-  isn't built yet, and `Interaction` isn't written anywhere yet, so neither
-  has anything to clean up.
+  sidebar on every page shows top questions and tag counts. Both also delete
+  the `Interaction` lines about what they delete (`{ actionId, actionTarget }`
+  index), then log the delete itself. Deleting a user isn't built yet, so
+  there is nothing to clean up for that.
+- **Reputation, badges and recommendations.**
+  - _Reputation_ (`lib/reputation.ts`, `lib/interactions.ts`): posting
+    earns +5 for a question and +10 for an answer, and deleting takes it
+    back. A vote gives the voter +2 (upvote) or -1 (downvote) and the
+    author +10 or -2. Taking a vote back, or switching it, reverses the old
+    points, so voting on and off can't farm them. Voting on your own post
+    isn't allowed, so no one earns from themselves. `reputation` is changed
+    with `$inc` in the same transaction as the action, so a failed action
+    leaves no points. It can go below 0. Points earned by votes stay when
+    the voted post is deleted.
+  - _Interaction log_: `post`, `upvote`, `downvote` and `delete` are written
+    in the same transaction too (a vote that is taken back isn't logged).
+    `view` (once per user and question, only when signed in) and `bookmark`
+    are written once, with an upsert. `edit` and `search` are allowed by the
+    schema but not written yet.
+  - _Badges_ (`lib/badges.ts`) are not stored: `getUser` adds up the user's
+    questions (count, upvotes, views) and answers (count, upvotes) and
+    `assignBadges` turns them into gold, silver and bronze counts.
+  - _Recommendations_ (`lib/recommendations.ts`, the "Recommended" home
+    filter): the tags of the questions in the user's latest 200 `view`,
+    `upvote`, `bookmark` and `post` lines decide what they like. They get
+    the most upvoted questions with those tags that they haven't seen and
+    didn't ask. With no activity yet they get the most upvoted questions
+    instead; signed-out readers get none.
 - **Case-insensitive tag names** use a collation index (`locale: "en"`,
   `strength: 2`). A query only uses it, and only ignores case, when it has the
   same `.collation(...)`.
