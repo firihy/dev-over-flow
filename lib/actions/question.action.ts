@@ -7,6 +7,7 @@ import type { QueryFilter } from "mongoose";
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 
+import { auth } from "@/auth";
 import Answer from "@/database/answer.model";
 import Collection from "@/database/collection.model";
 import Question, {
@@ -28,6 +29,7 @@ import {
   changeReputation,
   deleteInteractionsOf,
   recordInteraction,
+  recordInteractionOnce,
 } from "@/lib/interactions";
 import dbConnect from "@/lib/mongoose";
 import {
@@ -347,6 +349,18 @@ export async function incrementViews(
       { returnDocument: "after", timestamps: false, projection: { views: 1 } },
     ).lean();
     if (!question) throw new NotFoundError("Question");
+
+    // Signed-in readers also leave a log line, once per question, for
+    // recommendations. Signed-out readers just count as a view.
+    const userId = (await auth())?.user?.id;
+    if (userId) {
+      await recordInteractionOnce({
+        userId,
+        action: "view",
+        target: "question",
+        targetId: params.questionId,
+      });
+    }
 
     return { success: true, status: 200, data: { views: question.views } };
   } catch (error) {

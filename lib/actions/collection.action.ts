@@ -14,6 +14,7 @@ import Question from "@/database/question.model";
 import action from "@/lib/handlers/action";
 import handleError, { isDuplicateKeyError } from "@/lib/handlers/error";
 import { NotFoundError, UnauthorizedError } from "@/lib/http-errors";
+import { recordInteractionOnce } from "@/lib/interactions";
 import {
   CARD_POPULATE,
   type ListedQuestion,
@@ -80,6 +81,14 @@ export async function toggleSaveQuestion(
         if (!isDuplicateKeyError(error)) throw error;
       }
       saved = true;
+
+      // Saving shows interest, so recommendations can use it
+      await recordInteractionOnce({
+        userId,
+        action: "bookmark",
+        target: "question",
+        targetId: questionId,
+      });
     }
 
     // The star on the question page, and the list of saved questions
