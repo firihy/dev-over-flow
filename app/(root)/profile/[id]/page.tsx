@@ -93,7 +93,7 @@ const Profile = async ({
       : null;
   const userVotes = votesResult?.success ? votesResult.data : {};
 
-  const { user, totalQuestions, totalAnswers } = result.data;
+  const { user, totalQuestions, totalAnswers, badges } = result.data;
   // Every post here is this user's, so on your own profile you can edit
   // and delete them (the actions check the author again)
   const isOwnProfile = viewerId === user._id;
@@ -146,8 +146,7 @@ const Profile = async ({
         totalQuestions={totalQuestions}
         totalAnswers={totalAnswers}
         reputation={user.reputation}
-        // Placeholder: badges aren't earned yet, so everyone has 0
-        badges={{ GOLD: 0, SILVER: 0, BRONZE: 0 }}
+        badges={badges}
       />
 
       <div className="mt-10 flex gap-10">

@@ -1,12 +1,7 @@
 import Image from "next/image";
 
+import type { BadgeCounts } from "@/lib/badges";
 import { formatNumber } from "@/lib/utils";
-
-export interface BadgeCounts {
-  GOLD: number;
-  SILVER: number;
-  BRONZE: number;
-}
 
 interface StatsProps {
   totalQuestions: number;

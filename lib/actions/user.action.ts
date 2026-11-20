@@ -9,6 +9,7 @@ import type { z } from "zod";
 import Answer, { type IAnswerDoc } from "@/database/answer.model";
 import Question from "@/database/question.model";
 import User, { type IUser, type IUserDoc } from "@/database/user.model";
+import { assignBadges, type BadgeCounts } from "@/lib/badges";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
 import { NotFoundError } from "@/lib/http-errors";
@@ -109,31 +110,64 @@ type ProfileFields = Pick<
   | "createdAt"
 >;
 
+// What one author's posts add up to. A user without posts has no group at
+// all, so the empty case is spelled out here.
+interface PostTotals {
+  count: number;
+  upvotes: number;
+  views: number;
+}
+const NO_POSTS: PostTotals = { count: 0, upvotes: 0, views: 0 };
+
 // One user's public profile, with how many questions and answers they
-// posted. Public: no sign-in needed. Loads only the public fields, so the
+// posted and the badges those earn. Public: no sign-in needed. Loads only the public fields, so the
 // email never leaves the server.
 export async function getUser(input: GetUserInput): Promise<
   ActionResponse<{
     user: UserProfile;
     totalQuestions: number;
     totalAnswers: number;
+    badges: BadgeCounts;
   }>
 > {
   try {
     const { params } = await action({ params: input, schema: GetUserSchema });
     const { userId } = params;
 
-    // Independent of each other, so all at once. Both counts use the
-    // author index.
-    const [user, totalQuestions, totalAnswers] = await Promise.all([
-      User.findById(
-        userId,
-        "name username image bio location portfolio reputation createdAt",
-      ).lean<ProfileFields>(),
-      Question.countDocuments({ author: userId }),
-      Answer.countDocuments({ author: userId }),
-    ]);
+    // Aggregations don't cast ids like find() does. The schema already
+    // checked it's a valid ObjectId, so this can't throw.
+    const author = new Types.ObjectId(userId);
+    const sumPosts = (extra: Record<string, unknown>) => [
+      { $match: { author } },
+      { $group: { _id: null, count: { $sum: 1 }, ...extra } },
+    ];
+
+    // Independent of each other, so all at once. They use the author index.
+    const [user, [questions = NO_POSTS], [answers = NO_POSTS]] =
+      await Promise.all([
+        User.findById(
+          userId,
+          "name username image bio location portfolio reputation createdAt",
+        ).lean<ProfileFields>(),
+        Question.aggregate<PostTotals>(
+          sumPosts({
+            upvotes: { $sum: "$upvotes" },
+            views: { $sum: "$views" },
+          }),
+        ),
+        Answer.aggregate<PostTotals>(
+          sumPosts({ upvotes: { $sum: "$upvotes" } }),
+        ),
+      ]);
     if (!user) throw new NotFoundError("User");
+
+    const badges = assignBadges({
+      QUESTION_COUNT: questions.count,
+      ANSWER_COUNT: answers.count,
+      QUESTION_UPVOTES: questions.upvotes,
+      ANSWER_UPVOTES: answers.upvotes,
+      TOTAL_VIEWS: questions.views,
+    });
 
     return {
       success: true,
@@ -150,8 +184,9 @@ export async function getUser(input: GetUserInput): Promise<
           reputation: user.reputation ?? 0,
           createdAt: user.createdAt.toISOString(),
         },
-        totalQuestions,
-        totalAnswers,
+        totalQuestions: questions.count,
+        totalAnswers: answers.count,
+        badges,
       },
     };
   } catch (error) {
