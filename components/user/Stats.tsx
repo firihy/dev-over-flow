@@ -12,6 +12,7 @@ interface StatsProps {
   totalQuestions: number;
   totalAnswers: number;
   badges: BadgeCounts;
+  reputation: number;
 }
 
 const CARD_CLASSES =
@@ -24,9 +25,19 @@ const BADGES = [
 ] as const;
 
 // A profile's numbers: posts, then badges
-const Stats = ({ totalQuestions, totalAnswers, badges }: StatsProps) => (
+const Stats = ({
+  totalQuestions,
+  totalAnswers,
+  badges,
+  reputation,
+}: StatsProps) => (
   <section className="mt-10">
-    <h2 className="h3-semibold text-dark200_light900">Stats</h2>
+    <h2 className="h3-semibold text-dark200_light900">
+      Stats{" "}
+      <span className="small-semibold primary-text-gradient">
+        {formatNumber(reputation)} reputation
+      </span>
+    </h2>
 
     <div className="mt-5 grid grid-cols-1 gap-5 xs:grid-cols-2 md:grid-cols-4">
       <div className={`${CARD_CLASSES} justify-evenly`}>

@@ -145,6 +145,7 @@ const Profile = async ({
       <Stats
         totalQuestions={totalQuestions}
         totalAnswers={totalAnswers}
+        reputation={user.reputation}
         // Placeholder: badges aren't earned yet, so everyone has 0
         badges={{ GOLD: 0, SILVER: 0, BRONZE: 0 }}
       />
