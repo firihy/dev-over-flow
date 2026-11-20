@@ -21,7 +21,9 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "@/lib/http-errors";
+import { changeReputation, recordInteraction } from "@/lib/interactions";
 import dbConnect from "@/lib/mongoose";
+import { type ReputationChange, voteChanges } from "@/lib/reputation";
 import { CreateVoteSchema, GetUserVotesSchema } from "@/lib/validations";
 import type { ActionResponse, VoteResult } from "@/types";
 
@@ -131,15 +133,25 @@ export async function createVote(
 
         let userVote: VoteType | null;
         let change: Partial<Record<"upvotes" | "downvotes", 1 | -1>>;
+        // Reputation moves with the vote: a new vote earns it, removing the
+        // vote takes it back, so voting on and off can't farm points
+        const authorId = target.author?.toString();
+        const reputation: ReputationChange[] = [];
+        const points = (type: VoteType, sign: 1 | -1) => {
+          if (authorId)
+            reputation.push(...voteChanges(type, sign, userId, authorId));
+        };
 
         if (!existing) {
           await Vote.create([{ ...filter, voteType }], { session: dbSession });
           userVote = voteType;
           change = { [COUNT_FIELD[voteType]]: 1 };
+          points(voteType, 1);
         } else if (existing.voteType === voteType) {
           await Vote.deleteOne({ _id: existing._id }, { session: dbSession });
           userVote = null;
           change = { [COUNT_FIELD[voteType]]: -1 };
+          points(voteType, -1);
         } else {
           await Vote.updateOne(
             { _id: existing._id },
@@ -152,6 +164,17 @@ export async function createVote(
             [COUNT_FIELD[existing.voteType]]: -1,
             [COUNT_FIELD[voteType]]: 1,
           };
+          points(existing.voteType, -1);
+          points(voteType, 1);
+        }
+
+        await changeReputation(reputation, dbSession);
+        // A vote that is taken back isn't something the user did
+        if (userVote) {
+          await recordInteraction(
+            { userId, action: userVote, target: targetType, targetId },
+            dbSession,
+          );
         }
 
         const counts = await updateVoteCounts(

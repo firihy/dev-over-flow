@@ -3,7 +3,7 @@
 // keeps them on the server (see lib/handlers/action.ts).
 import "server-only";
 
-import type { ClientSession } from "mongoose";
+import type { ClientSession, Types } from "mongoose";
 
 import Interaction, {
   type InteractionAction,
@@ -38,6 +38,19 @@ export const recordInteraction = async (
   session: ClientSession,
 ) => {
   await Interaction.create([toDocument(event)], { session });
+};
+
+// Removes the log lines about deleted questions or answers, so nothing in
+// the log points at something that no longer exists.
+export const deleteInteractionsOf = async (
+  target: InteractionTarget,
+  ids: Types.ObjectId[],
+  session: ClientSession,
+) => {
+  await Interaction.deleteMany(
+    { actionId: { $in: ids }, actionTarget: target },
+    { session },
+  );
 };
 
 // Logs something the user did at most once per item, like viewing or saving

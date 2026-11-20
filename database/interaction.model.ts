@@ -45,6 +45,9 @@ const InteractionSchema = new Schema<IInteraction>(
   { timestamps: true },
 );
 
+// Finds every line about a question or answer, to delete them with it
+InteractionSchema.index({ actionId: 1, actionTarget: 1 });
+
 // Reuse the model on dev reloads (see user.model.ts)
 const Interaction =
   (models.Interaction as Model<IInteraction> | undefined) ??

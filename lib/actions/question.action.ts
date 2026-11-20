@@ -24,6 +24,11 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "@/lib/http-errors";
+import {
+  changeReputation,
+  deleteInteractionsOf,
+  recordInteraction,
+} from "@/lib/interactions";
 import dbConnect from "@/lib/mongoose";
 import {
   CARD_POPULATE,
@@ -31,6 +36,7 @@ import {
   toQuestionCards,
 } from "@/lib/questions";
 import { escapeRegex } from "@/lib/regex";
+import { postPoints } from "@/lib/reputation";
 import {
   AskQuestionSchema,
   DeleteQuestionSchema,
@@ -112,6 +118,21 @@ export async function createQuestion(
       await TagQuestion.insertMany(
         tagIds.map((tag) => ({ tag, question: created._id })),
         { session: dbSession },
+      );
+
+      // Posting earns reputation and goes in the activity log
+      await recordInteraction(
+        {
+          userId,
+          action: "post",
+          target: "question",
+          targetId: created._id.toString(),
+        },
+        dbSession,
+      );
+      await changeReputation(
+        [{ userId, points: postPoints("question") }],
+        dbSession,
       );
 
       return created;
@@ -422,6 +443,24 @@ export async function deleteQuestion(
         { session: dbSession },
       );
       await found.deleteOne({ session: dbSession });
+
+      // The log lines about the question and its answers go too. Then the
+      // delete is logged and the reputation from posting is taken back.
+      await deleteInteractionsOf("answer", answerIds, dbSession);
+      await deleteInteractionsOf("question", [found._id], dbSession);
+      await recordInteraction(
+        {
+          userId,
+          action: "delete",
+          target: "question",
+          targetId: questionId,
+        },
+        dbSession,
+      );
+      await changeReputation(
+        [{ userId, points: postPoints("question", -1) }],
+        dbSession,
+      );
     });
 
     // The question was on many pages (home, its tags, profiles, saved

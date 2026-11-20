@@ -19,7 +19,13 @@ import {
   NotFoundError,
   UnauthorizedError,
 } from "@/lib/http-errors";
+import {
+  changeReputation,
+  deleteInteractionsOf,
+  recordInteraction,
+} from "@/lib/interactions";
 import dbConnect from "@/lib/mongoose";
+import { postPoints } from "@/lib/reputation";
 import {
   AnswerServerSchema,
   DeleteAnswerSchema,
@@ -80,6 +86,22 @@ export async function createAnswer(
         [{ author: userId, question: questionId, content }],
         { session: dbSession },
       );
+
+      // Posting earns reputation and goes in the activity log
+      await recordInteraction(
+        {
+          userId,
+          action: "post",
+          target: "answer",
+          targetId: created._id.toString(),
+        },
+        dbSession,
+      );
+      await changeReputation(
+        [{ userId, points: postPoints("answer") }],
+        dbSession,
+      );
+
       return created;
     });
 
@@ -187,6 +209,18 @@ export async function deleteAnswer(
         { session: dbSession, timestamps: false },
       );
       await found.deleteOne({ session: dbSession });
+
+      // The log lines about the answer go too. Then the delete is logged
+      // and the reputation from posting is taken back.
+      await deleteInteractionsOf("answer", [found._id], dbSession);
+      await recordInteraction(
+        { userId, action: "delete", target: "answer", targetId: answerId },
+        dbSession,
+      );
+      await changeReputation(
+        [{ userId, points: postPoints("answer", -1) }],
+        dbSession,
+      );
     });
 
     // The answer count shows on question cards everywhere, and the
