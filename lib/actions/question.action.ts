@@ -37,6 +37,7 @@ import {
   type ListedQuestion,
   toQuestionCards,
 } from "@/lib/questions";
+import { getRecommendedQuestions } from "@/lib/recommendations";
 import { escapeRegex } from "@/lib/regex";
 import { postPoints } from "@/lib/reputation";
 import {
@@ -289,6 +290,7 @@ const SORTS = {
   popular: { upvotes: -1, createdAt: -1, _id: -1 },
   unanswered: { createdAt: -1, _id: -1 },
 } as const;
+// "recommended" has its own query: see getRecommendedQuestions
 
 // One page of questions for the home page, newest first unless a filter
 // says otherwise. Public: no sign-in needed.
@@ -302,6 +304,16 @@ export async function getQuestions(
       schema: QuestionsSearchParamsSchema,
     });
     const { page, pageSize, query, filter = "newest" } = params;
+
+    // Recommendations depend on who is asking. Signed-out readers have no
+    // activity to learn from, so they get none (not an error).
+    if (filter === "recommended") {
+      const userId = (await auth())?.user?.id;
+      const data = userId
+        ? await getRecommendedQuestions({ userId, query, page, pageSize })
+        : { questions: [], isNext: false };
+      return { success: true, status: 200, data };
+    }
 
     const filterQuery: QueryFilter<IQuestion> = {};
     if (query) {
