@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dev Overflow
 
-## Getting Started
+A community Q&A site for developers, in the style of Stack Overflow. Ask
+questions, answer them, vote, save the ones you want to keep, and earn
+reputation and badges.
 
-First, run the development server:
+## Features
+
+- **Questions and answers** written in a Markdown editor, with search, sort
+  (newest, popular, unanswered, recommended), tags and pagination.
+- **Votes, saved questions and views**, with reputation and badges that grow
+  with them.
+- **Recommended** questions based on what you have viewed, asked and voted on.
+- **AI answers** from Groq, written into the answer editor for you to edit.
+- **Community** page with every user, a **profile** page per user, and an
+  **Edit Profile** form for your own.
+- **Global search** in the navbar: questions, answers, users and tags.
+- **Jobs** page with listings from JSearch, searchable and filterable by
+  country.
+- **Sign-in** with email and password, GitHub or Google.
+- Light and dark themes.
+
+## Tech stack
+
+Next.js (App Router, server actions), React, TypeScript, Tailwind CSS,
+shadcn/ui, MongoDB with Mongoose, Auth.js (NextAuth v5), Zod and React Hook
+Form, and the Vercel AI SDK with Groq.
+
+## Getting started
+
+You need Node.js 20 or newer and a MongoDB database (a free
+[MongoDB Atlas](https://www.mongodb.com/atlas) cluster works).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # then fill in the values below
+npm run dev                  # http://localhost:4317
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set these in `.env.local` (never commit that file). `.env.example` lists them
+all with comments.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable                               | What it is                                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                          | Random secret for sessions. Make one with `npx auth secret`.                                                              |
+| `AUTH_TRUST_HOST`                      | `true` to run `next start` on localhost.                                                                                  |
+| `MONGODB_URI`                          | MongoDB connection string.                                                                                                |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | GitHub OAuth app, for "Sign in with GitHub".                                                                              |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Google OAuth client, for "Sign in with Google".                                                                           |
+| `GROQ_API_KEY`                         | Groq key for AI answers, from [console.groq.com/keys](https://console.groq.com/keys).                                     |
+| `RAPID_API_KEY`                        | RapidAPI key for the Jobs page. Subscribe to [JSearch](https://rapidapi.com) (the free plan allows 200 requests a month). |
+| `LOG_LEVEL`, `API_BASE_URL`            | Optional: log level, and where `lib/api.ts` sends requests.                                                               |
 
-## Learn More
+Without `RAPID_API_KEY` the app still works; the Jobs page shows a message
+instead of listings. Job searches are cached for an hour to spare the monthly
+limit.
 
-To learn more about Next.js, take a look at the following resources:
+### Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command             | What it does                                  |
+| ------------------- | --------------------------------------------- |
+| `npm run dev`       | Dev server on port 4317.                      |
+| `npm run build`     | Production build.                             |
+| `npm start`         | Serve the production build on port 4317.      |
+| `npm run lint`      | ESLint. `npm run lint:fix` fixes what it can. |
+| `npm run format`    | Prettier.                                     |
+| `npm run typecheck` | Generate route types, then `tsc --noEmit`.    |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Git hooks (Husky and lint-staged) run ESLint and Prettier on staged files.
 
-## Deploy on Vercel
+## Project layout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/          Pages and API routes (App Router)
+components/   UI: cards, forms, filters, navigation, ui/ (shadcn)
+constants/    Routes, filter options, empty-state texts, countries
+database/     Mongoose models
+lib/          Server actions (lib/actions), validation, helpers
+types/        Shared TypeScript types
+docs/         How authentication and the database work
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## More documentation
+
+- [`docs/AUTH.md`](docs/AUTH.md): sign-in, sessions and who may do what.
+- [`docs/DATABASE.md`](docs/DATABASE.md): collections, indexes and queries.
+
+## Deploying
+
+Deploy on [Vercel](https://vercel.com/new) and add the environment variables
+above in the project settings.
