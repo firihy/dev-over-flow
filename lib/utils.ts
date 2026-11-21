@@ -54,3 +54,23 @@ const compactNumberFormat = new Intl.NumberFormat("en", {
 // 999 -> "999", 1234 -> "1.2K", 999999 -> "1M", 2500000000 -> "2.5B"
 export const formatNumber = (number: number) =>
   compactNumberFormat.format(number);
+
+// Markdown to a short plain line for a page description (search results,
+// link previews): code blocks dropped, links and images reduced to their
+// text, markers removed, cut at a word with "…" if it is too long.
+export const toPlainText = (markdown: string, maxLength = 160) => {
+  const text = markdown
+    .replace(/(`{3,}|~{3,})[\s\S]*?(\1|$)/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/[*_`~|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > maxLength / 2 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+};
