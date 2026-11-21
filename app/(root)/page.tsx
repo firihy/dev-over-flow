@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -14,6 +15,12 @@ import { EMPTY_QUESTION, EMPTY_QUESTION_SEARCH } from "@/constants/states";
 import { getQuestions } from "@/lib/actions/question.action";
 import { getFirstParam, toPositiveInt } from "@/lib/url";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
+
+export const metadata: Metadata = {
+  title: "Home",
+  description:
+    "Discover programming questions and answers, with recommendations from the community.",
+};
 
 const SEARCH_PLACEHOLDER = "Search questions...";
 
