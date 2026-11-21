@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -15,11 +16,36 @@ import { isAnswerFilter } from "@/constants/filters";
 import ROUTES from "@/constants/routes";
 import { getAnswers } from "@/lib/actions/answer.action";
 import { hasSavedQuestion } from "@/lib/actions/collection.action";
-import { getQuestion } from "@/lib/actions/question.action";
 import { getUserVotes } from "@/lib/actions/vote.action";
+import { loadQuestion } from "@/lib/question-cache";
 import { getFirstParam, toPositiveInt } from "@/lib/url";
-import { formatNumber, getTimeStamp } from "@/lib/utils";
+import { formatNumber, getTimeStamp, toPlainText } from "@/lib/utils";
 import { MAX_PAGE_SIZE } from "@/lib/validations";
+
+export const generateMetadata = async ({
+  params,
+}: PageProps<"/questions/[id]">): Promise<Metadata> => {
+  const { id } = await params;
+  const result = await loadQuestion(id);
+
+  // The page itself shows notFound() for these, so say so in the tab too
+  if (!result.success) {
+    return {
+      title: "Question not found",
+      robots: { index: false },
+    };
+  }
+
+  const { title, content } = result.data;
+  const description = toPlainText(content);
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "article" },
+    twitter: { card: "summary", title, description },
+  };
+};
 
 const QuestionDetails = async ({
   params,
@@ -37,7 +63,7 @@ const QuestionDetails = async ({
   // All at once. getAnswers doesn't need the question: an unknown or
   // malformed id gets notFound() below before its result is used.
   const [result, answersResult, session] = await Promise.all([
-    getQuestion({ questionId: id }),
+    loadQuestion(id),
     getAnswers({
       questionId: id,
       page: pageNumber,
