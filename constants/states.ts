@@ -94,6 +94,13 @@ export const EMPTY_USERS_SEARCH: EmptyState = {
   button: { text: "Show All Users", href: ROUTES.COMMUNITY },
 };
 
+// The job search found nothing: other keywords or another country may
+export const EMPTY_JOBS: EmptyState = {
+  title: "No Jobs Found",
+  message: "Try other keywords, or pick another country.",
+  button: { text: "Clear the Search", href: ROUTES.JOBS },
+};
+
 // The signed-in user hasn't saved any question yet
 export const EMPTY_COLLECTION: EmptyState = {
   title: "No Saved Questions Yet",
