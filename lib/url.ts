@@ -40,11 +40,13 @@ export const removeKeysFromUrlQuery = ({
   return buildUrl(pathname, searchParams);
 };
 
-// The current query string minus ?page=, for when a search or filter
-// changes: page 3 of the old results means nothing for the new ones
+// The current query string minus ?page= (and ?cursor=, which /jobs pages
+// with), for when a search or filter changes: page 3 of the old results
+// means nothing for the new ones
 export const withoutPage = (searchParams: URLSearchParams) => {
   const params = new URLSearchParams(searchParams);
   params.delete("page");
+  params.delete("cursor");
   return params.toString();
 };
 
@@ -59,4 +61,18 @@ export const getFirstParam = (value: SearchParamValue) =>
 export const toPositiveInt = (value: string) => {
   const number = Number(value);
   return Number.isInteger(number) && number > 0 ? number : undefined;
+};
+
+// A link from outside (a job's apply link) is only used if it is http(s):
+// a "javascript:" URL in an href would run code when clicked.
+export const toHttpUrl = (value: string | null | undefined) => {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
 };
