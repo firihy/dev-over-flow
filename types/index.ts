@@ -84,6 +84,26 @@ export interface VoteResult {
   userVote: VoteType | null;
 }
 
+// A job from the JSearch API (lib/jobs.ts), cut down to what a card shows
+export interface Job {
+  id: string;
+  title: string;
+  employer?: string;
+  logo?: string;
+  // Where the job is posted. Both are http(s) links.
+  applyLink?: string;
+  employerWebsite?: string;
+  // Already readable, e.g. "Full-time"
+  employmentType?: string;
+  description?: string;
+  city?: string;
+  state?: string;
+  // ISO 3166-1 alpha-2, e.g. "EG"
+  country?: string;
+  // Already readable, e.g. "191K–294K a year"
+  salary?: string;
+}
+
 // ---- Responses returned by server actions and API routes ----
 
 export interface SuccessResponse<T = null> {
