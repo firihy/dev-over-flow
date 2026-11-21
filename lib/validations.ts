@@ -367,3 +367,40 @@ export const GlobalSearchSchema = z.object({
   // No type: look in all four
   type: z.enum(GLOBAL_SEARCH_TYPES.map((type) => type.value)).optional(),
 });
+
+// The edit-profile form and updateUser. Name and username are required;
+// the rest may be left empty, which clears them. The username allows
+// hyphens because OAuth sign-in can create one (GitHub logins have them),
+// and its owner must still be able to save the form. No email, password or
+// image: those are not edited here.
+export const ProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, { message: "Name is required." })
+    .max(50, { message: "Name cannot exceed 50 characters." }),
+  username: z
+    .string()
+    .trim()
+    .min(3, { message: "Username must be at least 3 characters long." })
+    .max(30, { message: "Username cannot exceed 30 characters." })
+    .regex(/^[a-zA-Z0-9_-]+$/, {
+      message:
+        "Username can only contain letters, numbers, underscores and hyphens.",
+    }),
+  portfolio: z
+    .string()
+    .trim()
+    .max(200, { message: "Link cannot exceed 200 characters." })
+    .refine((value) => value === "" || httpUrl.safeParse(value).success, {
+      message: "Please provide a valid URL.",
+    }),
+  location: z
+    .string()
+    .trim()
+    .max(100, { message: "Location cannot exceed 100 characters." }),
+  bio: z
+    .string()
+    .trim()
+    .max(500, { message: "Bio cannot exceed 500 characters." }),
+});

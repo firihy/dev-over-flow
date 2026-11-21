@@ -12,7 +12,11 @@ import User, { type IUser, type IUserDoc } from "@/database/user.model";
 import { assignBadges, type BadgeCounts } from "@/lib/badges";
 import action from "@/lib/handlers/action";
 import handleError from "@/lib/handlers/error";
-import { NotFoundError } from "@/lib/http-errors";
+import {
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from "@/lib/http-errors";
 import {
   CARD_POPULATE,
   type ListedQuestion,
@@ -22,6 +26,7 @@ import { escapeRegex } from "@/lib/regex";
 import {
   GetUserPostsSchema,
   GetUserSchema,
+  ProfileSchema,
   UsersSearchParamsSchema,
 } from "@/lib/validations";
 import type {
@@ -34,6 +39,7 @@ import type {
 } from "@/types";
 
 export type GetUsersInput = z.input<typeof UsersSearchParamsSchema>;
+export type UpdateUserInput = z.input<typeof ProfileSchema>;
 export type GetUserInput = z.input<typeof GetUserSchema>;
 export type GetUserPostsInput = z.input<typeof GetUserPostsSchema>;
 
@@ -339,6 +345,53 @@ export async function getUserTopTags(
     }));
 
     return { success: true, status: 200, data: tags };
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Saves the signed-in user's name, username, link, location and bio. The
+// user is the one in the session, never one named in the input, and only
+// these five fields can change (not email, reputation, ...). An empty
+// link, location or bio is removed rather than saved as "".
+export async function updateUser(
+  input: UpdateUserInput,
+): Promise<ActionResponse<{ userId: string }>> {
+  try {
+    const { params, session } = await action({
+      params: input,
+      schema: ProfileSchema,
+      authorize: true,
+    });
+    const userId = session.user?.id;
+    if (!userId) throw new UnauthorizedError();
+    const { name, username, portfolio, location, bio } = params;
+
+    // Field errors show under the matching input in the form. (Two saves
+    // racing past this check hit the unique index, which handleError turns
+    // into a 409.)
+    if (await User.exists({ username, _id: { $ne: userId } })) {
+      throw new ValidationError({
+        username: ["This username is already taken."],
+      });
+    }
+
+    const optional = { portfolio, location, bio };
+    const set: Record<string, string> = { name, username };
+    const unset: Record<string, 1> = {};
+    for (const [field, value] of Object.entries(optional)) {
+      if (value) set[field] = value;
+      else unset[field] = 1;
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: set, $unset: unset },
+      { returnDocument: "after", runValidators: true, projection: { _id: 1 } },
+    ).lean();
+    if (!updated) throw new NotFoundError("User");
+
+    return { success: true, status: 200, data: { userId } };
   } catch (error) {
     return handleError(error);
   }
