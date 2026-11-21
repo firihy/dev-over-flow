@@ -84,6 +84,13 @@ export interface VoteResult {
   userVote: VoteType | null;
 }
 
+// One hit from the navbar's global search. An answer links to its question.
+export interface GlobalSearchResult {
+  id: string;
+  type: "question" | "answer" | "user" | "tag";
+  title: string;
+}
+
 // A job from the JSearch API (lib/jobs.ts), cut down to what a card shows
 export interface Job {
   id: string;

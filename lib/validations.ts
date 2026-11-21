@@ -4,6 +4,7 @@ import { ACCOUNT_PROVIDERS, OAUTH_PROVIDERS } from "@/constants/accounts";
 import {
   ANSWER_FILTERS,
   COLLECTION_FILTERS,
+  GLOBAL_SEARCH_TYPES,
   HOME_FILTERS,
   TAG_FILTERS,
   USER_FILTERS,
@@ -348,4 +349,21 @@ export const DeleteQuestionSchema = z.object({
 // Body of deleteAnswer: which answer to delete
 export const DeleteAnswerSchema = z.object({
   answerId: objectIdSchema("Answer ID"),
+});
+
+// The navbar's global search. At least 2 characters: one letter matches
+// nearly everything. Capped like the other searches, which scan text
+// without an index.
+export const MIN_GLOBAL_SEARCH_LENGTH = 2;
+
+export const GlobalSearchSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(MIN_GLOBAL_SEARCH_LENGTH, {
+      message: `Type at least ${MIN_GLOBAL_SEARCH_LENGTH} characters.`,
+    })
+    .max(100),
+  // No type: look in all four
+  type: z.enum(GLOBAL_SEARCH_TYPES.map((type) => type.value)).optional(),
 });

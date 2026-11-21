@@ -72,3 +72,18 @@ export const isCollectionFilter = (
   value: string,
 ): value is CollectionFilterValue =>
   COLLECTION_FILTERS.some((filter) => filter.value === value);
+
+// What the navbar's global search can look for. The buttons under the
+// search box narrow the results to one of these; checked by
+// GlobalSearchSchema.
+export const GLOBAL_SEARCH_TYPES = [
+  { name: "Question", value: "question" },
+  { name: "Answer", value: "answer" },
+  { name: "User", value: "user" },
+  { name: "Tag", value: "tag" },
+] as const;
+
+export type GlobalSearchType = (typeof GLOBAL_SEARCH_TYPES)[number]["value"];
+
+export const isGlobalSearchType = (value: string): value is GlobalSearchType =>
+  GLOBAL_SEARCH_TYPES.some((type) => type.value === value);
