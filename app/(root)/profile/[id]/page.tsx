@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -7,6 +8,7 @@ import QuestionCard from "@/components/cards/QuestionCard";
 import TagCard from "@/components/cards/TagCard";
 import DataRenderer from "@/components/DataRenderer";
 import Pagination from "@/components/Pagination";
+import { Button } from "@/components/ui/button";
 import ProfileLink from "@/components/user/ProfileLink";
 import ProfileTabs, { isProfileTab } from "@/components/user/ProfileTabs";
 import Stats from "@/components/user/Stats";
@@ -103,43 +105,56 @@ const Profile = async ({
 
   return (
     <>
-      <section className="flex flex-col items-start gap-4 lg:flex-row">
-        <UserAvatar
-          id={user._id}
-          name={name}
-          imageUrl={image}
-          className="size-35"
-          fallbackClassName="text-6xl font-bold"
-          linkToProfile={false}
-        />
+      <section className="flex flex-col items-start gap-4 lg:flex-row lg:justify-between">
+        <div className="flex flex-col items-start gap-4 lg:flex-row">
+          <UserAvatar
+            id={user._id}
+            name={name}
+            imageUrl={image}
+            className="size-35"
+            fallbackClassName="text-6xl font-bold"
+            linkToProfile={false}
+          />
 
-        <div className="mt-3">
-          <h1 className="h2-bold text-dark100_light900">{name}</h1>
-          <p className="paragraph-regular text-dark200_light800">@{username}</p>
-
-          <div className="mt-5 flex flex-wrap items-center justify-start gap-5">
-            {portfolioLink && (
-              <ProfileLink
-                imgUrl="/icons/link.svg"
-                href={portfolioLink.href}
-                title={portfolioLink.title}
-              />
-            )}
-            {location && (
-              <ProfileLink imgUrl="/icons/location.svg" title={location} />
-            )}
-            <ProfileLink
-              imgUrl="/icons/calendar.svg"
-              title={`Joined ${joinedFormat.format(new Date(createdAt))}`}
-            />
-          </div>
-
-          {bio && (
-            <p className="paragraph-regular text-dark400_light800 mt-8">
-              {bio}
+          <div className="mt-3">
+            <h1 className="h2-bold text-dark100_light900">{name}</h1>
+            <p className="paragraph-regular text-dark200_light800">
+              @{username}
             </p>
-          )}
+
+            <div className="mt-5 flex flex-wrap items-center justify-start gap-5">
+              {portfolioLink && (
+                <ProfileLink
+                  imgUrl="/icons/link.svg"
+                  href={portfolioLink.href}
+                  title={portfolioLink.title}
+                />
+              )}
+              {location && (
+                <ProfileLink imgUrl="/icons/location.svg" title={location} />
+              )}
+              <ProfileLink
+                imgUrl="/icons/calendar.svg"
+                title={`Joined ${joinedFormat.format(new Date(createdAt))}`}
+              />
+            </div>
+
+            {bio && (
+              <p className="paragraph-regular text-dark400_light800 mt-8">
+                {bio}
+              </p>
+            )}
+          </div>
         </div>
+
+        {isOwnProfile && (
+          <Button
+            asChild
+            className="primary-gradient text-light-900 min-h-12 px-6 max-sm:w-full"
+          >
+            <Link href={ROUTES.EDIT_PROFILE}>Edit Profile</Link>
+          </Button>
+        )}
       </section>
 
       <Stats
