@@ -438,12 +438,17 @@ Ordinary requests never load Mongoose.
 
 ### Signed-in pages
 
-`/ask-question`, `/questions/[id]/edit` and `/collection` need a session.
+`/ask-question`, `/questions/[id]/edit`, `/profile/edit` and `/collection`
+need a session.
 Each page calls `auth()` and, when there's none, `redirect("/sign-in")` (the
 proxy doesn't block anything). `/collection` checks before loading anything.
 The page check is for the user: `createQuestion`, `editQuestion` and
 `getSavedQuestions` check the session again, because a server action can be
 called without the page.
+
+`/profile/edit` has no ID in its URL: it loads the user in the session, so
+nobody can open someone else's form. `updateUser` checks the session again
+(401) and saves to `session.user.id`, never to an ID from the request.
 
 The edit page also checks the author: someone else's question redirects to
 the question page. `editQuestion` repeats that check and answers 403
@@ -546,6 +551,8 @@ it expires (30 days by default).
 | `components/forms/SocialAuthForm.tsx`                 | GitHub/Google buttons; call `signIn(provider)` from `next-auth/react`.                                                                                                                                                                                                                                                       |
 | `components/UserAvatar.tsx`                           | Round avatar linking to `/profile/<id>`, with an initials fallback.                                                                                                                                                                                                                                                          |
 | `components/navigation/*`                             | Navbar avatar, and Log In / Sign Up / Log Out in the sidebar and mobile menu.                                                                                                                                                                                                                                                |
+| `app/(root)/profile/edit/page.tsx`                    | Redirects signed-out users to `/sign-in`; loads the signed-in user into `ProfileForm`.                                                                                                                                                                                                                                       |
+| `components/forms/ProfileForm.tsx`                    | Edit-profile form: runs `updateUser`, shows field errors (e.g. taken username) and toasts.                                                                                                                                                                                                                                   |
 | `app/(root)/ask-question/page.tsx`                    | Redirects signed-out users to `/sign-in`.                                                                                                                                                                                                                                                                                    |
 | `app/(root)/questions/[id]/edit/page.tsx`             | Redirects signed-out users to `/sign-in` and non-authors to the question page.                                                                                                                                                                                                                                               |
 | `app/(root)/collection/page.tsx`                      | Redirects signed-out users to `/sign-in`.                                                                                                                                                                                                                                                                                    |

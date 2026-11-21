@@ -207,6 +207,15 @@ erDiagram
   `$lookup` its name, then the 10 most used (ties by name). Aggregations
   don't cast ids, so the ID is checked by the schema before
   `new Types.ObjectId()`.
+- **Editing a profile** (`updateUser` in `lib/actions/user.action.ts`) saves
+  only `name`, `username`, `portfolio`, `location` and `bio`
+  (`ProfileSchema`), for the user in the session: the ID never comes from
+  the input, and email, reputation and the rest can't be sent through it
+  (the schema drops unknown keys). A username someone else has gives a
+  field error under the input (a check with `User.exists`, backed by the
+  unique index if two saves race). Empty `portfolio`, `location` and `bio`
+  are `$unset` instead of stored as `""`, so the profile page shows no
+  empty row.
 - **One tag's questions** (`getTagQuestions` in `lib/actions/tag.action.ts`)
   loads the tag and a page of questions with `tags: tagId` (the `tags`
   index), newest first with `_id` last. It searches titles and content like
