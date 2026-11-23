@@ -62,6 +62,9 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "npm@10.8.20",
   "overrides": {
     "react": "$react",
