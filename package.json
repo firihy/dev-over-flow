@@ -65,7 +65,13 @@
   "packageManager": "npm@10.8.20",
   "overrides": {
     "react": "$react",
-    "react-dom": "$react-dom"
+    "react-dom": "$react-dom",
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "7.1.8"
+    },
+    "@ts-morph/common": {
+      "minimatch": "11.0.9"
+    }
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
